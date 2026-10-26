@@ -158,7 +158,8 @@
     // Só o nome da letra: as letras já vêm do Google Fonts (<link> acima). Com um URL
     // no tema ("Nome:https://..."), o stlite 1.10.0 dá erro e a página fica em branco.
     const fonte = "IBM Plex Sans, sans-serif";
-    const fonteTitulos = "Source Serif 4, Georgia, serif";
+    // O nome tem um algarismo ("4"), por isso tem de ir entre aspas
+    const fonteTitulos = "'Source Serif 4', Georgia, serif";
     mount(
       {
         requirements: ["numpy", "pandas", "altair"],

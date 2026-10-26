@@ -245,7 +245,7 @@ def eixo_de_meses():
 def com_estilo(grafico):
     """Gráficos com o aspeto de figura de artigo: títulos serifados, grelha fina e pontilhada."""
     return (grafico.configure(font=LETRA)
-            .configure_title(font=LETRA_TITULOS, color=COR_TEXTO, fontSize=16, fontWeight=600,
+            .configure_title(font=f"'{LETRA_TITULOS}', Georgia, serif", color=COR_TEXTO, fontSize=16, fontWeight=600,
                              subtitleFont=LETRA, subtitleColor=COR_TEXTO_SUAVE, subtitleFontSize=12, anchor="start")
             .configure_axis(labelColor=COR_TEXTO_SUAVE, titleColor=COR_TEXTO_SUAVE, gridColor=COR_GRELHA,
                             gridDash=[2, 3], domainColor="#8A7F70", tickColor="#8A7F70", labelFontSize=11)
@@ -1110,7 +1110,7 @@ parte da ração e dos juvenis no custo (70 %) fora da dourada e do robalo.
 em 2013 (Morais et al., 2016); juvenis e ração na Grécia em 2020 (HAPO, 2021); juvenil de linguado a partir de
 Bjørndal & Guillen (2014).
 
-**Limitações:** os parâmetros do pregado e do linguado são os menos seguros e não entram nos notebooks; abaixo de
+**Limitações:** os parâmetros do pregado e do linguado são os menos seguros (notebook 06) e o modelo é otimista nos peixes grandes; abaixo de
 6 g o modelo da dourada é uma extrapolação; o modelo não tem temperatura ótima, por isso cada espécie tem um
 limite (25 °C; pregado 23 °C); a mortalidade e o FCR são constantes ao longo do ciclo.
 """
@@ -1149,7 +1149,7 @@ cost (70 %) outside sea bream and sea bass.
 market in 2013 (Morais et al., 2016); juveniles and feed in Greece in 2020 (HAPO, 2021); sole juvenile from
 Bjørndal & Guillen (2014).
 
-**Limitations:** turbot and sole parameters are the least certain and are not in the notebooks; below 6 g the sea
+**Limitations:** turbot and sole parameters are the least certain (notebook 06) and the model is optimistic for large fish; below 6 g the sea
 bream model is an extrapolation; the model has no optimum temperature, so each species has a limit (25 °C; turbot
 23 °C); mortality and FCR are constant over the cycle.
 """
@@ -1158,8 +1158,8 @@ st.divider()
 with st.expander(t("Notas sobre o modelo: equações, parâmetros, pressupostos e referências",
                    "Notes on the model: equations, parameters, assumptions and references")):
     st.markdown(t(SOBRE_PT, SOBRE_EN))
-    st.markdown(t("As referências completas, com DOI, e os cinco notebooks de análise estão no repositório.",
-                  "Full references with DOIs, and the five analysis notebooks, are in the repository."))
+    st.markdown(t("As referências completas, com DOI, e os seis notebooks de análise estão no repositório.",
+                  "Full references with DOIs, and the six analysis notebooks, are in the repository."))
     st.link_button(t("Código, notebooks e referências", "Code, notebooks and references"), URL_GITHUB,
                    icon=":material/code:")
 st.caption(f"Dinis Costa · [LinkedIn]({URL_LINKEDIN}) · [GitHub]({URL_GITHUB})")

@@ -62,7 +62,7 @@ Simulamos uma jaula de 5 000 peixes durante 640 dias, com:
 
 ### Pregado e linguado (só na app)
 
-Para estas espécies não foi encontrado um modelo ajustado a dados de explorações comerciais. A app usa o TGC clássico (só a fase $W^{1/3}$, temperatura base 0 °C; Cho, 1992), com valores **calibrados** a partir das fichas da FAO. São os parâmetros menos seguros do projeto e não entram nos notebooks.
+Para estas espécies não foi encontrado um modelo ajustado a dados de explorações comerciais. A app usa o TGC clássico (só a fase $W^{1/3}$, temperatura base 0 °C; Cho, 1992), com valores **calibrados** a partir das fichas da FAO. São os parâmetros menos seguros do projeto; estão analisados no notebook 06.
 
 | Parâmetro | Pregado | Linguado | Fonte |
 |---|---|---|---|
@@ -93,6 +93,7 @@ Para estas espécies não foi encontrado um modelo ajustado a dados de exploraç
 | [03_modelo_von_bertalanffy](notebooks/03_modelo_von_bertalanffy.ipynb) | Ajuste da curva de von Bertalanffy com `scipy.optimize.curve_fit`, intervalos de confiança, R², resíduos e análise de sensibilidade |
 | [04_cenarios](notebooks/04_cenarios.ipynb) | Cenários de temperatura (16, 20, 24 °C) e de alimentação |
 | [05_regimes_de_cultivo](notebooks/05_regimes_de_cultivo.ipynb) | Extensivo, semi-intensivo, jaulas, tanques/RAS e IMTA |
+| [06_pregado_e_linguado](notebooks/06_pregado_e_linguado.ipynb) | Calibração do TGC do pregado e do linguado, comparação com dados de cultivo e efeito da temperatura |
 
 As funções estão em [`src/`](src/):
 
@@ -160,6 +161,14 @@ A curva ajusta-se bem (R² ≥ 0,97), mas **o peso assintótico W∞ não é ide
 - **IMTA:** reduz a ração do robalo em cerca de **11 %**, sem alterar o crescimento (Cotou et al., 2024).
 - **Extensivo e semi-intensivo:** não foram simulados, porque os peixes se alimentam de alimento natural e o modelo assume ração.
 
+### 6. Pregado e linguado
+
+![Pregado e linguado em tanque](figures/06_pregado_linguado.png)
+
+- Com o TGC calibrado, o pregado chega a 1 kg em cerca de 15 meses a 16 °C e o linguado a 350 g em cerca de 17 meses a 20 °C (durações da FAO).
+- Comparado com outros dados de cultivo, o modelo é **otimista nos peixes grandes**: o pregado chega a 1–1,5 kg cerca de 20–30 % mais cedo do que numa exploração em Portugal, e o linguado de 180 g fica cerca de 50 % mais pesado ao fim de 240 dias do que no ensaio de Valente et al. (2011).
+- Com a temperatura base de 0 °C (pressuposto), passar de 16 para 20 °C encurta o ciclo cerca de 20 %, contra cerca de 50 % na dourada.
+
 ### Limitações
 
 - Os dados são simulados.
@@ -212,9 +221,10 @@ aquaculture-growth-model/
 ├── data/
 │   ├── raw/            registos de biometria (simulados)
 │   └── processed/
-├── notebooks/          análises 01 a 05
+├── notebooks/          análises 01 a 06
 ├── src/                funções reutilizáveis
 ├── figures/            gráficos exportados
+├── imagens/            fotografias do ecrã de abertura
 ├── app.py              app interativa (Streamlit)
 ├── index.html          site do projeto (corre a app.py no browser)
 ├── PRODUCT.md          contexto do produto (público, objetivos, regras de estilo)
