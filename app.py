@@ -27,9 +27,18 @@ URL_GITHUB = "https://github.com/dinistcosta/aquaculture-growth-model"
 st.set_page_config(page_title="Crescimento de dourada e robalo", page_icon="🐟", layout="wide")
 
 
+MESES = ["jan.", "fev.", "mar.", "abr.", "maio", "jun.",
+         "jul.", "ago.", "set.", "out.", "nov.", "dez."]
+
+
 def virgula(numero, casas=1):
     """Escreve um número com vírgula decimal (ex.: 14,1)."""
     return f"{numero:.{casas}f}".replace(".", ",")
+
+
+def mes_e_ano(data):
+    """Escreve uma data como mês e ano em português (ex.: out. 2025)."""
+    return f"{MESES[data.month - 1]} {data.year}"
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +121,9 @@ for coluna, especie in zip(colunas, especies):
         c1, c2, c3 = st.columns(3)
         c1.metric(f"Até {peso_comercial} g", f"{dia} dias")
         c1.caption(f"≈ {virgula(dia / 30.4)} meses")
+        if tipo_temperatura == "Sazonal":
+            # Os juvenis entram a 1 de abril de 2024 (ver perfil_temperatura)
+            c1.caption(f"Despesca ≈ {mes_e_ano(sim.loc[dia, 'data'])}")
         c2.metric("FCR económico", virgula(fcr, 2),
                   help="kg de ração por kg de peixe produzido, incluindo a ração comida pelos peixes que morreram.")
         c3.metric("Sobrevivência", f"{sim.loc[dia, 'n_peixes'] / N_PEIXES:.0%}")
@@ -130,7 +142,9 @@ if len(especies) == 2 and None not in dias_alvo.values():
 # ---------------------------------------------------------------------------
 # 5. Gráficos
 # ---------------------------------------------------------------------------
-aba_crescimento, aba_modelo = st.tabs([":material/show_chart: Crescimento", ":material/info: Sobre o modelo"])
+aba_crescimento, aba_biomassa, aba_dados, aba_modelo = st.tabs(
+    [":material/show_chart: Crescimento", ":material/scale: Biomassa e ração",
+     ":material/table: Dados", ":material/info: Sobre o modelo"])
 
 with aba_crescimento:
     dia_maximo = min(N_DIAS, int(max(d or N_DIAS for d in dias_alvo.values()) * 1.15))
@@ -193,7 +207,63 @@ with aba_crescimento:
 
 
 # ---------------------------------------------------------------------------
-# 6. Explicação do modelo
+# 6. Biomassa da jaula e ração gasta (até ao tamanho comercial)
+# ---------------------------------------------------------------------------
+with aba_biomassa:
+    st.markdown(f"Jaula com **{N_PEIXES:,} juvenis** de 3 g. ".replace(",", " ") +
+                "A biomassa é o peso total dos peixes vivos; a ração é a soma da ração dada desde o início.")
+
+    # Uma linha por espécie e por dia, com a ração acumulada
+    dados_bio = pd.concat([
+        s.iloc[:dia_maximo:2].assign(nome=NOMES[e], racao_acumulada=s["racao_kg"].cumsum().iloc[:dia_maximo:2])
+        for e, s in simulacoes.items()])
+
+    grafico_biomassa = alt.Chart(dados_bio).mark_line(strokeWidth=2.5).encode(
+        x=eixo_x, y=alt.Y("biomassa_kg:Q", title="Biomassa (kg)"), color=cor,
+        tooltip=[alt.Tooltip("nome:N", title="Espécie"), alt.Tooltip("dia:Q", title="Dia"),
+                 alt.Tooltip("biomassa_kg:Q", title="Biomassa (kg)", format=".0f"),
+                 alt.Tooltip("n_peixes:Q", title="Peixes vivos")]
+    ).properties(height=260, title=alt.Title("Biomassa na jaula"))
+    grafico_racao = alt.Chart(dados_bio).mark_line(strokeWidth=2.5, strokeDash=[6, 3]).encode(
+        x=eixo_x, y=alt.Y("racao_acumulada:Q", title="Ração (kg)"), color=cor,
+        tooltip=[alt.Tooltip("nome:N", title="Espécie"), alt.Tooltip("dia:Q", title="Dia"),
+                 alt.Tooltip("racao_acumulada:Q", title="Ração acumulada (kg)", format=".0f")]
+    ).properties(height=260, title=alt.Title("Ração acumulada"))
+
+    col_bio, col_racao = st.columns(2, gap="medium")
+    col_bio.altair_chart(grafico_biomassa, width="stretch")
+    col_racao.altair_chart(grafico_racao, width="stretch")
+
+    # Resumo no dia em que cada espécie chega ao tamanho comercial
+    resumo = pd.DataFrame([{
+        "Espécie": NOMES[e],
+        "Dias": d,
+        "Peixes vivos": int(simulacoes[e].loc[d, "n_peixes"]),
+        "Biomassa (kg)": round(simulacoes[e].loc[d, "biomassa_kg"]),
+        "Ração gasta (kg)": round(simulacoes[e].loc[:d, "racao_kg"].sum()),
+    } for e, d in dias_alvo.items() if d is not None])
+    if len(resumo):
+        st.markdown(f"**No dia em que chega aos {peso_comercial} g**")
+        st.dataframe(resumo, hide_index=True)
+
+
+# ---------------------------------------------------------------------------
+# 7. Tabela com os dados simulados (para descarregar)
+# ---------------------------------------------------------------------------
+with aba_dados:
+    st.markdown("Valores diários da simulação, até ao fim do gráfico. **Dados simulados.**")
+    colunas_tabela = ["especie", "dia", "data", "temperatura_c", "n_peixes",
+                      "peso_medio_g", "peso_dp_g", "biomassa_kg", "racao_kg", "mortos"]
+    tabela = pd.concat([s.iloc[:dia_maximo][colunas_tabela] for s in simulacoes.values()])
+    tabela = tabela.round({"peso_medio_g": 1, "peso_dp_g": 1, "biomassa_kg": 1, "racao_kg": 2})
+    st.dataframe(tabela, hide_index=True, height=320)
+    st.download_button("Descarregar CSV", tabela.to_csv(index=False).encode("utf-8"),
+                       file_name="simulacao_crescimento.csv", mime="text/csv",
+                       icon=":material/download:")
+
+
+# ---------------------------------------------------------------------------
+# 8. Explicação do modelo
 # ---------------------------------------------------------------------------
 with aba_modelo:
     st.markdown(r"""
