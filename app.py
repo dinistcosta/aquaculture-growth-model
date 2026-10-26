@@ -88,6 +88,9 @@ ESTILO = f"""
   h2 {{ font-size: 1.55rem !important; font-weight: 600 !important; padding-top: 1.75rem !important;
         border-bottom: 1px solid {COR_TEXTO}; padding-bottom: 0.35rem !important; margin-bottom: 0.75rem !important; }}
   h3 {{ font-size: 1.2rem !important; font-weight: 600 !important; }}
+  h1 {{ max-width: 22ch; text-wrap: balance; }}
+  .subtitulo {{ font-family: '{LETRA_TITULOS}', Georgia, serif; font-style: italic; font-size: 1.2rem;
+                color: {COR_TEXTO_SUAVE}; margin: -0.4rem 0 0.25rem; }}
   hr {{ border: none !important; border-top: 3px double {COR_TEXTO_SUAVE} !important; opacity: 0.6; }}
   [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {{ opacity: 1; color: {COR_TEXTO_SUAVE}; }}
   [data-testid="stCaptionContainer"] em {{ font-family: '{LETRA_TITULOS}', Georgia, serif; font-style: italic; }}
@@ -148,7 +151,8 @@ FONTES = {
                  "sobrevivencia": "Quental-Ferreira et al. (2010)", "fcr": "Valente et al. (2011)"},
 }
 
-st.set_page_config(page_title=t("Crescimento de peixes em aquacultura", "Fish growth in aquaculture"),
+st.set_page_config(page_title=t("Quanto tempo demora um peixe a chegar ao tamanho comercial?",
+                                "How long does a fish take to reach market size?"),
                    page_icon=":material/show_chart:", layout="wide")
 st.markdown(ESTILO, unsafe_allow_html=True)
 
@@ -264,18 +268,21 @@ def figura(grafico, legenda, coluna=st):
 # 1. Cabeçalho (título, autor e botão da língua)
 # ---------------------------------------------------------------------------
 col_titulo, col_lingua = st.columns([8, 1], vertical_alignment="center")
-col_titulo.title(t("Crescimento de peixes em aquacultura", "Fish growth in aquaculture"))
+col_titulo.title(t("Quanto tempo demora um peixe a chegar ao tamanho comercial?",
+                   "How long does a fish take to reach market size?"))
+col_titulo.markdown(f'<p class="subtitulo">{t("Modelo de crescimento em aquacultura", "Growth model for aquaculture")}</p>',
+                    unsafe_allow_html=True)
 idioma_escolhido = col_lingua.segmented_control(
     "Idioma / Language", ["pt", "en"], default=idioma, required=True, key="idioma",
     format_func=str.upper, label_visibility="collapsed")
 st.query_params["lang"] = idioma_escolhido   # o link copiado abre na mesma língua
 
-st.markdown(t("Quanto tempo demoram a dourada, o robalo, o pregado e o linguado a chegar ao tamanho "
-              "comercial, quanta ração gastam e quanto custa produzi-los? Simulação do ciclo de engorda "
-              "com parâmetros publicados, em jaula no mar ou em tanque / RAS.",
-              "How long do sea bream, sea bass, turbot and sole take to reach market size, how much feed "
-              "do they use and what does it cost to produce them? A grow-out simulation built on "
-              "published parameters, for sea cages or tanks / RAS."))
+st.markdown(t("Simulação do ciclo de engorda da dourada, do robalo, do pregado e do linguado, com parâmetros "
+              "publicados: quando chegam ao tamanho comercial, quanta ração gastam e quanto custa produzi-los, "
+              "em jaula no mar ou em tanque / RAS.",
+              "A grow-out simulation of sea bream, sea bass, turbot and sole, with published parameters: when "
+              "they reach market size, how much feed they use and what it costs to produce them, in sea cages "
+              "or tanks / RAS."))
 with st.container(horizontal=True, vertical_alignment="center", gap="small"):
     st.markdown(t("**Dinis Costa** · Mestrado em Biologia Marinha Aplicada",
                   "**Dinis Costa** · MSc in Applied Marine Biology"), width="content")

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Crescimento de peixes em aquacultura</title>
+  <title>Quanto tempo demora um peixe a chegar ao tamanho comercial?</title>
   <meta name="description" content="Modelo de crescimento de dourada, robalo, pregado e linguado em aquacultura (dados simulados). Growth model for sea bream, sea bass, turbot and sole in aquaculture (simulated data)." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='14' fill='%231F5C66'/><polyline points='18,74 40,52 56,62 82,30' fill='none' stroke='white' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
   <!--
@@ -34,22 +34,34 @@
       transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .carregar.saida { opacity: 0; pointer-events: none; }
-    .carregar .conteudo { width: min(46rem, 100%); display: flex; flex-direction: column; gap: 1rem; }
-    .carregar h1 { margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: clamp(2rem, 1.3rem + 2.4vw, 3rem); font-weight: 600; line-height: 1.1; letter-spacing: -0.01em; text-wrap: balance; padding-bottom: 0.6rem; border-bottom: 3px double var(--texto-suave); }
+    .carregar .conteudo { width: min(60rem, 100%); display: flex; flex-direction: column; gap: 1.25rem; }
+    .carregar header { padding-bottom: 0.9rem; border-bottom: 3px double var(--texto-suave); }
+    .carregar h1 { margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: clamp(2rem, 1.2rem + 3vw, 3.4rem); font-weight: 600; line-height: 1.08; letter-spacing: -0.015em; text-wrap: balance; max-width: 20ch; }
+    .carregar .subtitulo { margin: 0.6rem 0 0; font-family: 'Source Serif 4', Georgia, serif; font-style: italic; font-size: 1.2rem; color: var(--texto-suave); }
     .carregar p { margin: 0; max-width: 68ch; line-height: 1.55; }
-    .carregar .lead { font-size: 1.05rem; }
-    .carregar figure { margin: 0.5rem 0 0; }
-    .carregar img { display: block; width: 100%; height: auto; border-radius: 2px; border: 1px solid var(--anel); background: white; }
-    .carregar figcaption { margin-top: 0.4rem; font-size: 0.85rem; color: var(--texto-suave); }
-    .carregar figcaption em { font-family: 'Source Serif 4', Georgia, serif; }
+    .carregar .lead { font-size: 1.08rem; }
+    .carregar .fotos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+    .carregar .fotos figure { margin: 0; }
+    .carregar .fotos img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 2px; border: 1px solid var(--anel); background: var(--anel); }
+    .carregar .fotos figcaption { margin-top: 0.35rem; font-size: 0.9rem; line-height: 1.3; }
+    .carregar .fotos figcaption i { font-family: 'Source Serif 4', Georgia, serif; color: var(--texto-suave); }
+    .carregar .faz { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.9rem 2rem; margin: 0; padding: 1rem 0; border-top: 1px solid var(--anel); border-bottom: 1px solid var(--anel); }
+    .carregar .faz div { line-height: 1.5; }
+    .carregar .faz dt { font-family: 'Source Serif 4', Georgia, serif; font-weight: 600; font-size: 1.08rem; }
+    .carregar .faz dd { margin: 0.15rem 0 0; color: var(--texto-suave); }
     .carregar .estado { color: var(--texto-suave); font-size: 0.95rem; }
     .carregar .autor { font-size: 0.95rem; }
+    .carregar .creditos { font-size: 0.8rem; color: var(--texto-suave); }
     .carregar a { color: var(--oceano-escuro); text-underline-offset: 0.15em; }
     .carregar a:focus-visible { outline: 2px solid var(--oceano-escuro); outline-offset: 2px; border-radius: 2px; }
     .carregar .barra { width: 100%; height: 4px; border-radius: 4px; background: var(--anel); overflow: hidden; }
     .carregar .barra::after {
       content: ""; display: block; width: 30%; height: 100%; border-radius: 4px; background: var(--oceano);
       animation: onda 1.6s ease-in-out infinite;
+    }
+    @media (max-width: 640px) {
+      .carregar .fotos { grid-template-columns: repeat(2, 1fr); }
+      .carregar .faz { grid-template-columns: 1fr; }
     }
     @keyframes onda { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
     @media (prefers-reduced-motion: reduce) {
@@ -61,18 +73,35 @@
 <body>
   <div id="carregar" class="carregar" role="status" aria-live="polite">
     <div class="conteudo">
-      <h1 id="titulo">Crescimento de peixes em aquacultura</h1>
-      <p class="lead" id="lead">Quanto tempo demoram a dourada, o robalo, o pregado e o linguado a chegar ao tamanho comercial, quanta ração gastam e quanto custa produzi-los? Simulação do ciclo de engorda com parâmetros publicados, em jaula no mar ou em tanque / RAS.</p>
+      <header>
+        <h1 id="titulo">Quanto tempo demora um peixe a chegar ao tamanho comercial?</h1>
+        <p class="subtitulo" id="subtitulo">Modelo de crescimento em aquacultura</p>
+      </header>
+      <p class="lead" id="lead">Um simulador do ciclo de engorda de quatro espécies criadas em Portugal e no Mediterrâneo, com parâmetros tirados da literatura científica. Mostra quando os peixes chegam ao tamanho comercial, quanta ração gastam e quanto custa produzi-los.</p>
+      <ul class="fotos">
+        <li><figure><img src="imagens/dourada.jpg" width="480" height="360" alt="Douradas a nadar num tanque de aquacultura." id="foto-dourada" />
+          <figcaption><span id="nome-dourada">Dourada</span> <i>Sparus aurata</i></figcaption></figure></li>
+        <li><figure><img src="imagens/robalo.jpg" width="480" height="360" alt="Robalo adulto pousado sobre redes." id="foto-robalo" />
+          <figcaption><span id="nome-robalo">Robalo</span> <i>Dicentrarchus labrax</i></figcaption></figure></li>
+        <li><figure><img src="imagens/pregado.jpg" width="480" height="360" alt="Pregados sobrepostos no fundo de um tanque." id="foto-pregado" />
+          <figcaption><span id="nome-pregado">Pregado</span> <i>Scophthalmus maximus</i></figcaption></figure></li>
+        <li><figure><img src="imagens/linguado.jpg" width="480" height="360" alt="Grande plano da cabeça de um linguado." id="foto-linguado" />
+          <figcaption><span id="nome-linguado">Linguado</span> <i>Solea senegalensis</i></figcaption></figure></li>
+      </ul>
+      <dl class="faz" id="faz">
+        <div><dt>Escolher o cenário</dt><dd>Espécies, jaula no mar ou tanque, temperatura da água e alimentação.</dd></div>
+        <div><dt>Ver o ciclo</dt><dd>Dias até ao tamanho comercial, calendário de produção e tamanhos na colheita.</dd></div>
+        <div><dt>Fazer as contas</dt><dd>Ração, custos, receita e o dia de colheita com maior margem.</dd></div>
+        <div><dt>Usar dados reais</dt><dd>Temperaturas e pesagens de uma exploração em CSV, comparadas com o modelo.</dd></div>
+      </dl>
       <div class="barra" id="barra" role="progressbar" aria-label="A carregar o modelo"></div>
       <p class="estado" id="estado">A carregar o modelo, que corre em Python no próprio browser. Na primeira visita demora 30 a 60 segundos; as seguintes são mais rápidas.</p>
-      <figure>
-        <img src="figures/01_crescimento_simulado.png" width="1500" height="750" id="figura"
-             alt="Curvas de crescimento simulado da dourada e do robalo, de 3 g até mais de 400 g, entre abril de 2024 e janeiro de 2026." />
-        <figcaption id="legenda"><em>Fig. 0.</em> Pré-visualização estática (notebook 01, dados simulados). A versão interativa abre aqui quando o modelo terminar de carregar.</figcaption>
-      </figure>
       <p class="autor" id="autor"><strong>Dinis Costa</strong> · Mestrado em Biologia Marinha Aplicada ·
         <a href="https://www.linkedin.com/in/dinis-costa-a58a67380" target="_blank" rel="noopener">LinkedIn</a> ·
         <a href="https://github.com/dinistcosta/aquaculture-growth-model" target="_blank" rel="noopener">Código e notebooks no GitHub</a></p>
+      <p class="creditos" id="creditos">Fotografias (recortadas e reduzidas), via Wikimedia Commons: dourada, Isabelle Cheret; robalo, Olivier Dugornay; pregado, Stéphane Lesbats (as três do Ifremer,
+        <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>); linguado, Mario Lepage
+        (<a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>).</p>
     </div>
   </div>
   <div id="root"></div>
@@ -83,20 +112,29 @@
       || (navigator.language.startsWith("pt") ? "pt" : "en");
     if (lang === "en") {
       const textos = {
-        titulo: "Fish growth in aquaculture",
-        lead: "How long do sea bream, sea bass, turbot and sole take to reach market size, how much feed do they use and what does it cost to produce them? A grow-out simulation built on published parameters, for sea cages or tanks / RAS.",
+        titulo: "How long does a fish take to reach market size?",
+        subtitulo: "Growth model for aquaculture",
+        lead: "A grow-out simulator for four species farmed in Portugal and the Mediterranean, with parameters taken from the scientific literature. It shows when fish reach market size, how much feed they use and what it costs to produce them.",
+        "nome-dourada": "Sea bream", "nome-robalo": "Sea bass", "nome-pregado": "Turbot", "nome-linguado": "Sole",
+        faz: '<div><dt>Choose the scenario</dt><dd>Species, sea cage or tank, water temperature and feeding.</dd></div>'
+          + '<div><dt>See the cycle</dt><dd>Days to market size, production calendar and sizes at harvest.</dd></div>'
+          + '<div><dt>Do the sums</dt><dd>Feed, costs, revenue and the harvest day with the highest margin.</dd></div>'
+          + '<div><dt>Use real data</dt><dd>Temperatures and weighings from a farm in CSV, compared with the model.</dd></div>',
         estado: "Loading the model, which runs in Python inside the browser. The first visit takes 30 to 60 seconds; later visits are faster.",
-        legenda: "<em>Fig. 0.</em> Static preview (notebook 01, simulated data; labels in Portuguese). The interactive version opens here once the model has loaded.",
         autor: '<strong>Dinis Costa</strong> · MSc in Applied Marine Biology · '
           + '<a href="https://www.linkedin.com/in/dinis-costa-a58a67380" target="_blank" rel="noopener">LinkedIn</a> · '
           + '<a href="https://github.com/dinistcosta/aquaculture-growth-model" target="_blank" rel="noopener">Code and notebooks on GitHub</a>',
+        creditos: 'Photographs (cropped and resized), via Wikimedia Commons: sea bream, Isabelle Cheret; sea bass, Olivier Dugornay; turbot, Stéphane Lesbats (all three Ifremer, '
+          + '<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>); sole, Mario Lepage '
+          + '(<a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>).',
       };
       document.documentElement.lang = "en";
       document.title = textos.titulo;
       for (const [id, html] of Object.entries(textos)) document.getElementById(id).innerHTML = html;
       document.getElementById("barra").setAttribute("aria-label", "Loading the model");
-      document.getElementById("figura").alt =
-        "Simulated growth curves for sea bream and sea bass, from 3 g to over 400 g, between April 2024 and January 2026.";
+      const alts = {dourada: "Sea bream swimming in an aquaculture tank.", robalo: "Adult sea bass lying on nets.",
+                    pregado: "Turbot overlapping on the bottom of a tank.", linguado: "Close-up of a sole's head."};
+      for (const [e, texto] of Object.entries(alts)) document.getElementById("foto-" + e).alt = texto;
     }
 
     // Tira o ecrã de carregamento quando a app mostra os primeiros resultados

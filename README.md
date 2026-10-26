@@ -1,4 +1,6 @@
-# Modelo de crescimento de dourada e robalo em aquacultura
+# Quanto tempo demora um peixe a chegar ao tamanho comercial?
+
+*Modelo de crescimento em aquacultura: dourada, robalo, pregado e linguado.*
 
 Modelação do crescimento da **dourada** (*Sparus aurata*) e do **robalo** (*Dicentrarchus labrax*) em aquacultura, e simulação do efeito da **temperatura**, da **alimentação** e do **regime de cultivo** no tempo até ao tamanho comercial, na eficiência alimentar e nos custos.
 
@@ -246,6 +248,14 @@ Python · NumPy · pandas · Matplotlib · seaborn · SciPy · Jupyter · Stream
 - Sammouth, S., Roque d'Orbcastel, E., Gasset, E., Lemarié, G., Breuil, G., Marino, G., Coeurdacier, J.-L., Fivelstad, S. & Blancheton, J.-P. (2009). The effect of density on sea bass (*Dicentrarchus labrax*) performance in a tank-based recirculating system. *Aquacultural Engineering* 40: 72–78. https://doi.org/10.1016/j.aquaeng.2008.11.004
 - Somers, I.F. (1988). On a seasonally oscillating growth function. *Fishbyte* 6(1): 8–11.
 - Türkmen, S., Eroldoğan, O.T., Yılmaz, H.A., Ölçülü, A., İnan, G.A.K., Erçen, Z. & Tekelioğlu, N. (2012). Compensatory growth response of European sea bass (*Dicentrarchus labrax* L.) under cycled starvation and restricted feeding rate. *Aquaculture Research* 43: 1643–1650. https://doi.org/10.1111/j.1365-2109.2011.02970.x
+
+## Fotografias
+
+As fotografias do ecrã de abertura do site (pasta `imagens/`, recortadas e reduzidas) vêm do Wikimedia Commons:
+- Dourada: Isabelle Cheret, Ifremer, CC BY 4.0 ("Daurades royales (Sparus aurata) en bassin").
+- Robalo: Olivier Dugornay, Ifremer, CC BY 4.0 ("Bar commun (Dicentrarchus labrax)").
+- Pregado: Stéphane Lesbats, Ifremer, CC BY 4.0 ("Turbots (Scophthalmus maximus)").
+- Linguado: Mario Lepage, CC BY 3.0 ("Solea senegalensis").
 
 ## Agradecimentos
 
