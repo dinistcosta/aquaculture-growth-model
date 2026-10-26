@@ -5,7 +5,9 @@ Modelação do crescimento da **dourada** (*Sparus aurata*) e do **robalo** (*Di
 **App interativa:** [dinistcosta.github.io/aquaculture-growth-model](https://dinistcosta.github.io/aquaculture-growth-model/). Abre com um exemplo calculado a partir da literatura e pode ser usada com os dados de uma exploração:
 - espécie, sistema de cultivo (jaula, tanque / RAS, IMTA), alimentação e tamanho comercial;
 - número e peso dos juvenis, data de entrada, temperaturas e pesagens em CSV (as pesagens são comparadas com o modelo);
-- parâmetros do modelo (TGC, FCR, sobrevivência) e preços (venda, juvenis, ração), com custos, receita e margem estimados;
+- quatro espécies: **dourada**, **robalo**, **pregado** (*Scophthalmus maximus*) e **linguado** (*Solea senegalensis*);
+- parâmetros de cada espécie (tamanho comercial, peso de entrada, TGC, FCR, sobrevivência) e preços (venda, juvenis, ração), com custos, receita e margem estimados;
+- figuras numeradas: crescimento, calendário de produção, distribuição de tamanhos na colheita, SGR e FCR mês a mês, divisão dos custos, margem ao longo do ciclo e mapa do mês de entrada;
 - português e inglês (botão PT / EN; o link com `?lang=en` abre em inglês).
 
 > **Os dados deste projeto são SIMULADOS.** Foram gerados a partir de parâmetros publicados na literatura científica (referências abaixo), com variação aleatória para se parecerem com dados reais. Não são registos de nenhuma exploração. O código está preparado para ser usado com dados reais (ver [Usar dados reais](#usar-dados-reais)).
@@ -55,6 +57,22 @@ Simulamos uma jaula de 5 000 peixes durante 640 dias, com:
 | Regimes de cultivo | tabela da FAO | densidade em RAS; IMTA | FAO (2009); Sammouth et al. (2009); Cotou et al. (2024) |
 | Preço de venda (app) | 4,89 €/kg | 6,45 €/kg | EUMOFA (Grécia, 2023) |
 | Juvenil e ração (app) | 0,20 €/unidade; ≈ 1,04 €/kg | igual | HAPO (2021), dados de 2020 |
+
+### Pregado e linguado (só na app)
+
+Para estas espécies não foi encontrado um modelo ajustado a dados de explorações comerciais. A app usa o TGC clássico (só a fase $W^{1/3}$, temperatura base 0 °C; Cho, 1992), com valores **calibrados** a partir das fichas da FAO. São os parâmetros menos seguros do projeto e não entram nos notebooks.
+
+| Parâmetro | Pregado | Linguado | Fonte |
+|---|---|---|---|
+| TGC | 0,00105 | 0,000516 | **Calibração**: FAO (pregado: 5–10 g a 80–100 g em 4–6 meses, a 16 °C; linguado: 5 g a 350 g em 16–18 meses, a 19–21 °C) |
+| Tamanho comercial | 1 kg (vende-se entre 0,7 e 2 kg) | 350 g | FAO |
+| Temperatura máxima do modelo | 23 °C | 25 °C | FAO; Morais et al. (2016) |
+| Sobrevivência no ciclo | 85 % | 99 % | **pressuposto**; Quental-Ferreira et al. (2010), citado em Morais et al. (2016) |
+| FCR | 1,15 | 2,2 | FAO (1,1–1,2); Valente et al. (2011), citado em Morais et al. (2016) |
+| Preço de venda | 11,29 €/kg | 12,25 €/kg | EUMOFA (Portugal, 2023); mercado de Madrid em 2013 (Morais et al., 2016) |
+| Juvenil | 1,32 € | 1,32 € | **sem fonte** (pressuposto igual ao linguado); 3,77 € por kg produzido × 0,35 kg (Bjørndal & Guillen, 2014, citado em Morais et al., 2016) |
+
+**Comparação com dados de cultivo:** a 16 °C o pregado vai de 10 g a 1 kg em cerca de 15 meses no modelo, mais depressa do que os 600–750 dias até 1–1,5 kg indicados para uma exploração em Portugal (o TGC foi calibrado com juvenis). No linguado, Valente et al. (2011) mediram 180 g a 323–354 g em 240 dias a 19 °C, mais devagar do que o modelo prevê.
 
 **Calibração do robalo:** não foi encontrado um TGC do robalo medido em jaulas comerciais. O valor usado faz o robalo demorar mais 13 % do que a dourada a chegar aos 400 g, que é a diferença entre os ciclos de referência das duas espécies (14–16 vs. 16–18 meses; Cardia & Lovatelli, 2007). **Não é um valor publicado** e deve ser substituído pelo TGC de uma exploração quando houver dados (na app, em *Parâmetros do modelo*).
 
@@ -148,7 +166,8 @@ A curva ajusta-se bem (R² ≥ 0,97), mas **o peso assintótico W∞ não é ide
 - O modelo não tem temperatura ótima, por isso só é usado até 25 °C (o ótimo do robalo é cerca de 26 °C; Person-Le Ruyet et al., 2004).
 - A mortalidade e o FCR são constantes ao longo do ciclo.
 - Os efeitos da alimentação, da densidade e do IMTA vêm de ensaios curtos e foram extrapolados para um ciclo inteiro.
-- Os custos da app são estimativas: a ração e os juvenis são cerca de 70 % do custo de produção (HAPO, 2021) e o resto varia de exploração para exploração.
+- Os custos da app são estimativas: a ração e os juvenis são cerca de 70 % do custo de produção da dourada e do robalo (HAPO, 2021); nas outras espécies usa-se o mesmo valor (pressuposto).
+- Os parâmetros do pregado e do linguado são calibrações e pressupostos (ver acima).
 
 ## Como correr o projeto
 
@@ -209,14 +228,17 @@ Python · NumPy · pandas · Matplotlib · seaborn · SciPy · Jupyter · Stream
 
 - Bonaldo, A., Isani, G., Fontanillas, R., Parma, L., Grilli, E. & Gatta, P.P. (2010). Growth and feed utilization of gilthead sea bream (*Sparus aurata*, L.) fed to satiation and restrictively at increasing dietary energy levels. *Aquaculture International* 18: 909–919. https://doi.org/10.1007/s10499-009-9312-0
 - Cardia, F. & Lovatelli, A. (2007). A review of cage aquaculture: Mediterranean Sea. *FAO Fisheries Technical Paper* 498: 156–187.
+- Cho, C.Y. (1992). Feeding systems for rainbow trout and other salmonids with reference to current estimates of energy and protein requirements. *Aquaculture* 100: 107–123.
 - Cotou, E., Miliou, H., Chatzoglou, E., Schoina, E., Politakis, N., Kogiannou, D., Fountoulaki, E., Androni, A., Konstantinopoulou, A., Assimakopoulou, G. & Nathanailides, C. (2024). Growth performance and environmental quality indices and biomarkers in a co-culture of the European sea bass with filter and deposit feeders: a case study of an IMTA system. *Fishes* 9: 69. https://doi.org/10.3390/fishes9020069
 - El-Desoki, M.O., Younis, Y.M., Youssef, E.D.A., Ahmed, S.M., Ahmed, K.S. & Al-Beak, A.M. (2021). Age, growth and mortality of the European seabass (*Dicentrarchus labrax*) in Bardawil lagoon, North Sinai, Egypt. *International Journal of Aquaculture and Fishery Sciences* 7(4): 42–46. https://doi.org/10.17352/2455-8400.000072
 - EUMOFA (European Market Observatory for Fisheries and Aquaculture Products). Perfis de espécie: *Gilthead seabream* e *European seabass* (preços à saída da exploração na Grécia, 2023). https://fishery-aquaculture-market-observatory.ec.europa.eu
+- FAO. Cultured Aquatic Species Information Programme: *Psetta maxima* (pregado) e *Solea* spp. (linguado; resumo em The Fish Site, "How to farm sole").
 - FAO (2009). *Sparus aurata*. In: Cultured aquatic species fact sheets. Texto de Colloca, F. & Cerasi, S.; editado por Crespi, V. & New, M.
 - HAPO (Hellenic Aquaculture Producers Organization) (2021). *Aquaculture in Greece 2021*. Relatório anual.
 - Kallitsis, E. & Avramidis, P. (2025). Life cycle assessment of aquaculture production in Greece. *Cleaner Environmental Systems* 16: 100261. https://doi.org/10.1016/j.cesys.2025.100261
 - Kraljević, M., Dulčić, J. & Tudor, M. (1998). Growth parameters of the gilt-head sea bream *Sparus aurata* L. in the eastern Adriatic (Croatian waters). *Periodicum Biologorum* 100: 87–91.
 - Lupatsch, I., Kissil, G.W. & Sklan, D. (2003). Defining energy and protein requirements of gilthead seabream (*Sparus aurata*) to optimize feeds and feeding regimes. *The Israeli Journal of Aquaculture – Bamidgeh* 55: 243–257. (Modelo usado até outubro de 2026.)
+- Morais, S., Aragão, C., Cabrita, E., Conceição, L.E.C., Constenla, M., Costas, B., Dias, J., Duncan, N., Engrola, S., Estevez, A., Gisbert, E., Mañanós, E. et al. (2016). New developments and biological insights into the farming of *Solea senegalensis* reinforcing its aquaculture potential. *Reviews in Aquaculture* 8: 227–263. https://doi.org/10.1111/raq.12091
 - Mayer, P., Estruch, V.D., Blasco, J. & Jover, M. (2008). Predicting the growth of gilthead sea bream (*Sparus aurata* L.) farmed in marine cages under real production conditions using temperature- and time-dependent models. *Aquaculture Research* 39: 1046–1052. https://doi.org/10.1111/j.1365-2109.2008.01963.x
 - Mayer, P., Estruch, V.D. & Jover, M. (2012). A two-stage growth model for gilthead sea bream (*Sparus aurata*) based on the thermal growth coefficient. *Aquaculture* 358–359: 6–13. https://doi.org/10.1016/j.aquaculture.2012.06.016
 - Muniesa, A. et al. (2020). Mapping the knowledge of the main diseases affecting sea bass and sea bream in Mediterranean. *Transboundary and Emerging Diseases* 67: 1089–1100. https://doi.org/10.1111/tbed.13482
