@@ -192,7 +192,7 @@ Python · NumPy · pandas · Matplotlib · seaborn · SciPy · Jupyter
 
 ## Agradecimentos
 
-Parte do código e da documentação deste projeto foi desenvolvida com a ajuda do **Claude** (Anthropic), um assistente de inteligência artificial.
+Parte do código e da documentação deste projeto foi desenvolvida com a ajuda do **Claude** (Anthropic), um assistente de inteligência artificial. As escolhas científicas, a verificação das referências e a interpretação dos resultados foram revistas pelo autor.
 
 ## Autor
 
