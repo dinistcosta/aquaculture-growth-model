@@ -11,3 +11,4 @@ __pycache__/
 
 # Artigos científicos em PDF (consultados, mas não distribuídos no repositório)
 data/raw/*.pdf
+.impeccable/
