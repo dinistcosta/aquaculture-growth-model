@@ -1,0 +1,16 @@
+# Tema da app (cores do mar). Usado com "streamlit run app.py".
+# O site (index.html) repete estes valores em streamlitConfig.
+[theme]
+base = "light"
+primaryColor = "#0E7490"
+backgroundColor = "#F7FAFB"
+secondaryBackgroundColor = "#E8F1F4"
+textColor = "#0F2A36"
+borderColor = "#D3E2E8"
+showWidgetBorder = true
+baseRadius = "0.6rem"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+
+[client]
+toolbarMode = "viewer"

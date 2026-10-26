@@ -5,32 +5,78 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Crescimento de dourada e robalo</title>
   <meta name="description" content="Modelo de crescimento de dourada e robalo em aquacultura (dados simulados)." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐟</text></svg>" />
   <!--
     Site do projeto, publicado no GitHub Pages.
     O stlite corre a app.py (Streamlit) dentro do browser, com Python (Pyodide),
     sem precisar de servidor. Os ficheiros são lidos do próprio repositório.
   -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/browser@1.10.0/build/stlite.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <style>
+    :root {
+      --oceano: #0E7490;
+      --fundo: #F7FAFB;
+      --texto: #0F2A36;
+      --texto-suave: #5B6F78;
+      --anel: #D3E2E8;
+    }
+    body { margin: 0; background: var(--fundo); color: var(--texto); font-family: Inter, system-ui, sans-serif; }
+    .carregar {
+      min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1rem; padding: 1.5rem 1rem; text-align: center; box-sizing: border-box;
+      background: radial-gradient(ellipse at top, #E3F1F5 0%, var(--fundo) 60%);
+    }
+    .carregar .peixe { font-size: 3rem; animation: nadar 2.4s ease-in-out infinite; }
+    .carregar h1 { margin: 0; font-size: clamp(1.4rem, 4vw, 2rem); font-weight: 700; letter-spacing: -0.01em; }
+    .carregar p { margin: 0; max-width: 32rem; color: var(--texto-suave); line-height: 1.5; }
+    .carregar .barra { width: min(16rem, 70vw); height: 4px; border-radius: 4px; background: var(--anel); overflow: hidden; }
+    .carregar .barra::after {
+      content: ""; display: block; width: 40%; height: 100%; border-radius: 4px; background: var(--oceano);
+      animation: onda 1.4s ease-in-out infinite;
+    }
+    @keyframes nadar { 0%, 100% { transform: translateX(-12px) rotate(-4deg); } 50% { transform: translateX(12px) rotate(4deg); } }
+    @keyframes onda { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+    @media (prefers-reduced-motion: reduce) { .carregar .peixe, .carregar .barra::after { animation: none; } }
+  </style>
 </head>
 <body>
   <div id="root">
-    <p style="font-family: sans-serif; padding: 2rem; color: #444;">
-      A carregar o modelo (Python no browser)… A primeira vez pode demorar 10 a 30 segundos.
-    </p>
+    <div class="carregar">
+      <div class="peixe" aria-hidden="true">🐟</div>
+      <h1>Crescimento de dourada e robalo</h1>
+      <p>A carregar o modelo, que corre em Python dentro do teu browser.<br />Na primeira visita pode demorar 10 a 30 segundos.</p>
+      <div class="barra" role="progressbar" aria-label="A carregar"></div>
+    </div>
   </div>
   <script type="module">
     import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@1.10.0/build/stlite.js";
 
+    const fonte = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap";
     mount(
       {
-        requirements: ["numpy", "pandas", "matplotlib"],
+        requirements: ["numpy", "pandas", "altair"],
         entrypoint: "app.py",
         files: {
           "app.py": { url: "./app.py" },
           "src/__init__.py": { url: "./src/__init__.py" },
           "src/growth.py": { url: "./src/growth.py" },
         },
-        streamlitConfig: { "client.toolbarMode": "viewer" },
+        // Mesmo tema que .streamlit/config.toml (cores do mar)
+        streamlitConfig: {
+          "client.toolbarMode": "viewer",
+          "theme.base": "light",
+          "theme.primaryColor": "#0E7490",
+          "theme.backgroundColor": "#F7FAFB",
+          "theme.secondaryBackgroundColor": "#E8F1F4",
+          "theme.textColor": "#0F2A36",
+          "theme.borderColor": "#D3E2E8",
+          "theme.showWidgetBorder": true,
+          "theme.baseRadius": "0.6rem",
+          "theme.font": fonte,
+          "theme.headingFont": fonte,
+        },
       },
       document.getElementById("root"),
     );
