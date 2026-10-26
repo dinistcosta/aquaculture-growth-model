@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Crescimento de dourada e robalo</title>
+  <title>Modelo de crescimento de dourada e robalo</title>
   <meta name="description" content="Modelo de crescimento de dourada e robalo em aquacultura (dados simulados)." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐟</text></svg>" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230E7490'/><polyline points='18,74 40,52 56,62 82,30' fill='none' stroke='white' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
   <!--
     Site do projeto, publicado no GitHub Pages.
     O stlite corre a app.py (Streamlit) dentro do browser, com Python (Pyodide),
@@ -28,7 +28,7 @@
       gap: 1rem; padding: 1.5rem 1rem; text-align: center; box-sizing: border-box;
       background: radial-gradient(ellipse at top, #E3F1F5 0%, var(--fundo) 60%);
     }
-    .carregar .peixe { font-size: 3rem; animation: nadar 2.4s ease-in-out infinite; }
+    .carregar p.etiqueta { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--oceano); }
     .carregar h1 { margin: 0; font-size: clamp(1.4rem, 4vw, 2rem); font-weight: 700; letter-spacing: -0.01em; }
     .carregar p { margin: 0; max-width: 32rem; color: var(--texto-suave); line-height: 1.5; }
     .carregar .barra { width: min(16rem, 70vw); height: 4px; border-radius: 4px; background: var(--anel); overflow: hidden; }
@@ -36,17 +36,16 @@
       content: ""; display: block; width: 40%; height: 100%; border-radius: 4px; background: var(--oceano);
       animation: onda 1.4s ease-in-out infinite;
     }
-    @keyframes nadar { 0%, 100% { transform: translateX(-12px) rotate(-4deg); } 50% { transform: translateX(12px) rotate(4deg); } }
     @keyframes onda { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
-    @media (prefers-reduced-motion: reduce) { .carregar .peixe, .carregar .barra::after { animation: none; } }
+    @media (prefers-reduced-motion: reduce) { .carregar .barra::after { animation: none; } }
   </style>
 </head>
 <body>
   <div id="root">
     <div class="carregar">
-      <div class="peixe" aria-hidden="true">🐟</div>
-      <h1>Crescimento de dourada e robalo</h1>
-      <p>A carregar o modelo, que corre em Python dentro do teu browser.<br />Na primeira visita pode demorar 10 a 30 segundos.</p>
+      <p class="etiqueta">Aquacultura · Modelação do crescimento</p>
+      <h1>Modelo de crescimento de dourada e robalo</h1>
+      <p>A carregar o modelo, que corre em Python no browser.<br />A primeira visita pode demorar 10 a 30 segundos.</p>
       <div class="barra" role="progressbar" aria-label="A carregar"></div>
     </div>
   </div>

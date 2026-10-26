@@ -35,7 +35,8 @@ URL_GITHUB = "https://github.com/dinistcosta/aquaculture-growth-model"
 MODELO_TEMPERATURAS = "data,temperatura_c\n2024-04-01,16.5\n2024-04-08,17.0\n2024-04-15,17.2\n"
 MODELO_PESAGENS = "data,peso_medio_g\n2024-05-01,9.8\n2024-06-01,24.5\n2024-07-01,48.0\n"
 
-st.set_page_config(page_title="Crescimento de dourada e robalo", page_icon="🐟", layout="wide")
+st.set_page_config(page_title="Modelo de crescimento de dourada e robalo",
+                   page_icon=":material/show_chart:", layout="wide")
 
 
 MESES = ["jan.", "fev.", "mar.", "abr.", "maio", "jun.",
@@ -142,14 +143,14 @@ with st.sidebar:
 
     peso_comercial = st.slider("Tamanho comercial (g)", 250, 600, 400, 25)
 
-    st.header("O meu cultivo")
-    st.caption("Opcional: põe os dados da tua exploração. Nada sai do teu computador.")
+    st.header("Dados da exploração")
+    st.caption("Opcional. Os ficheiros são lidos apenas no browser e não são enviados para nenhum servidor.")
     n_juvenis = st.number_input("Número de juvenis", 100, 5_000_000, N_PEIXES, 1000)
     peso_inicial = st.number_input("Peso dos juvenis à entrada (g)", 1.0, 50.0, PESO_INICIAL_G, 0.5,
                                    help="O modelo foi feito para juvenis de 2–4 g; acima de 50 g não é fiável.")
     data_entrada = st.date_input("Data de entrada", datetime.date(2024, 4, 1), format="DD/MM/YYYY")
 
-    with st.expander("Carregar as minhas medições (CSV)"):
+    with st.expander("Carregar medições (CSV)"):
         st.markdown("Um ficheiro por tipo de medição, com uma linha por medição. "
                     "Pode ser exportado do Excel (separador `;` ou `,`).")
         ficheiro_temp = st.file_uploader("Temperaturas da água", type="csv",
@@ -180,7 +181,7 @@ if ficheiro_temp is not None:
     try:
         temperatura, dias_medidos = temperatura_dos_dados(ler_csv(ficheiro_temp, "temperatura_c"),
                                                           datas, temperatura)
-        avisos.append(f":material/thermostat: A usar as tuas temperaturas ({dias_medidos} dias do ciclo "
+        avisos.append(f"Temperatura: medições da exploração ({dias_medidos} dias do ciclo "
                       "com medições; os restantes são completados com a média do mesmo dia do ano).")
         if temperatura.max() > TEMPERATURA_MAXIMA_VALIDA:
             avisos.append(f":material/warning: Há temperaturas acima de {virgula(TEMPERATURA_MAXIMA_VALIDA, 0)} °C. "
@@ -240,11 +241,11 @@ dias_alvo = {e: dias_ate_peso(s, peso_comercial) for e, s in simulacoes.items()}
 # ---------------------------------------------------------------------------
 # 4. Cabeçalho
 # ---------------------------------------------------------------------------
-st.title("🐟 Crescimento de dourada e robalo")
-st.markdown("Quanto tempo demora um peixe de aquacultura a chegar ao tamanho comercial? "
-            "Escolhe o **sistema de cultivo**, a **alimentação** e a **espécie** na barra lateral, "
-            "ou põe lá os **dados do teu cultivo**.")
-st.caption(":material/science: Resultados **simulados** com parâmetros da literatura científica; "
+st.title("Modelo de crescimento de dourada e robalo")
+st.markdown("Simulação do ciclo de engorda em aquacultura: tempo até ao tamanho comercial, biomassa e "
+            "consumo de ração, consoante a espécie, o sistema de cultivo e a alimentação. "
+            "Os parâmetros do cenário e os dados da exploração definem-se na barra lateral.")
+st.caption("Resultados **simulados** com parâmetros da literatura científica; "
            "não são dados de nenhuma exploração.")
 for aviso in avisos:
     st.caption(aviso)
@@ -258,8 +259,11 @@ for coluna, especie in zip(colunas, especies):
     sim = simulacoes[especie]
     dia = dias_alvo[especie]
     with coluna.container(border=True):
-        cor = "orange" if especie == "dourada" else "blue"
-        st.markdown(f"#### :{cor}[●] {NOMES[especie]} &nbsp;*:gray[{CIENTIFICOS[especie]}]*")
+        # Quadrado com a cor da espécie nos gráficos
+        marca = (f'<span style="display:inline-block;width:0.7em;height:0.7em;border-radius:2px;'
+                 f'background:{CORES[especie]};margin-right:0.4em"></span>')
+        st.markdown(f"#### {marca}{NOMES[especie]} &nbsp;*:gray[{CIENTIFICOS[especie]}]*",
+                    unsafe_allow_html=True)
         if dia is None:
             st.error(f"Não chega aos {peso_comercial} g em {N_DIAS} dias.")
             continue
@@ -267,11 +271,12 @@ for coluna, especie in zip(colunas, especies):
         ganho_biomassa = ate_peso["biomassa_kg"].iloc[-1] - n_juvenis * peso_inicial / 1000
         fcr = ate_peso["racao_kg"].sum() / ganho_biomassa
         c1, c2, c3 = st.columns(3)
-        c1.metric(f"Até {peso_comercial} g", f"{dia} dias")
-        c1.caption(f"≈ {virgula(dia / 30.4)} meses · despesca ≈ {mes_e_ano(sim.loc[dia, 'data'])}")
+        c1.metric(f"Dias até {peso_comercial} g", dia)
+        c1.caption(f"≈ {virgula(dia / 30.4)} meses")
         c2.metric("FCR económico", virgula(fcr, 2),
                   help="kg de ração por kg de peixe produzido, incluindo a ração comida pelos peixes que morreram.")
         c3.metric("Sobrevivência", f"{sim.loc[dia, 'n_peixes'] / n_juvenis:.0%}")
+        st.caption(f"Despesca prevista: {mes_e_ano(sim.loc[dia, 'data'])}")
 
 # Frase-resumo quando se comparam as duas espécies
 if len(especies) == 2 and None not in dias_alvo.values():
@@ -281,15 +286,14 @@ if len(especies) == 2 and None not in dias_alvo.values():
     else:
         frase = "o **robalo** chega {} antes da **dourada**"
     tempo = f"aos {peso_comercial} g **{abs(diferenca)} dias** (≈ {virgula(abs(diferenca) / 30.4)} meses)"
-    st.markdown(":material/compare_arrows: Neste cenário, " + frase.format(tempo) + ".")
+    st.markdown("Neste cenário, " + frase.format(tempo) + ".")
 
 
 # ---------------------------------------------------------------------------
 # 6. Gráficos
 # ---------------------------------------------------------------------------
 aba_crescimento, aba_biomassa, aba_dados, aba_modelo = st.tabs(
-    [":material/show_chart: Crescimento", ":material/scale: Biomassa e ração",
-     ":material/table: Dados", ":material/info: Sobre o modelo"])
+    ["Crescimento", "Biomassa e ração", "Dados", "Sobre o modelo"])
 
 with aba_crescimento:
     dia_maximo = min(N_DIAS, int(max(d or N_DIAS for d in dias_alvo.values()) * 1.15))
@@ -338,14 +342,14 @@ with aba_crescimento:
     camadas = faixa + linha + alvo + alvo_texto + pontos
     subtitulo = "Linha: média da jaula · sombra: ± 1 desvio-padrão entre peixes"
     if pesagens is not None:
-        # As pesagens da pessoa, como losangos escuros por cima das curvas do modelo
+        # As pesagens da exploração, como losangos escuros por cima das curvas do modelo
         camadas += alt.Chart(pesagens).mark_point(shape="diamond", filled=True, size=90,
                                                   color=COR_PESAGENS, opacity=0.9).encode(
             x=alt.X("dia:Q", scale=escala_x), y="valor:Q",
             tooltip=[alt.Tooltip("data:T", title="Pesagem", format="%d/%m/%Y"),
                      alt.Tooltip("dia:Q", title="Dia"),
                      alt.Tooltip("valor:Q", title="Peso médio medido (g)", format=".1f")])
-        subtitulo += " · ◆ as tuas pesagens"
+        subtitulo += " · ◆ pesagens da exploração"
 
     grafico_peso = camadas.properties(
         height=380, title=alt.Title("Peso médio dos peixes", subtitle=subtitulo))
@@ -357,11 +361,11 @@ with aba_crescimento:
         comparacao["Data"] = comparacao["data"].dt.strftime("%d/%m/%Y")
         for e, s in simulacoes.items():
             comparacao[f"{NOMES[e]}: modelo (g)"] = s.loc[comparacao["dia"], "peso_medio_g"].round(1).to_numpy()
-        st.markdown("**As tuas pesagens vs. o modelo**")
+        st.markdown("**Pesagens da exploração vs. modelo**")
         st.dataframe(comparacao.drop(columns="data").rename(columns={"dia": "Dia"})
                      [["Data", "Dia", "Medido (g)"] + [f"{NOMES[e]}: modelo (g)" for e in especies]],
                      hide_index=True)
-        st.caption("Se as pesagens ficam sistematicamente abaixo (ou acima) da curva, o teu cultivo cresce "
+        st.caption("Se as pesagens ficam sistematicamente abaixo (ou acima) da curva, o cultivo cresce "
                    "mais devagar (ou mais depressa) do que os estudos usados no modelo.")
 
     dados_temp = pd.DataFrame({"dia": np.arange(dia_maximo), "temperatura": temperatura[:dia_maximo]})
@@ -466,9 +470,9 @@ peixes vivos) crescem na mesma proporção.
 **Sistemas de cultivo:** na jaula a temperatura segue uma curva sazonal (pressuposto, ± 4 °C);
 no tanque / RAS é constante, por defeito 22 °C (meio do intervalo 18–26 °C da FAO, 2009).
 
-**As tuas medições:** as temperaturas são interpoladas para ter um valor por dia; os dias do ciclo
-sem medição usam a média do mesmo dia do ano nas tuas medições. As pesagens não mudam a simulação:
-servem para ver se o teu cultivo cresce como o modelo prevê.
+**Dados da exploração:** as temperaturas são interpoladas para ter um valor por dia; os dias do ciclo
+sem medição usam a média do mesmo dia do ano nas medições. As pesagens não mudam a simulação:
+servem para verificar se o cultivo cresce como o modelo prevê.
 
 **Limitações:** o modelo não tem temperatura ótima (por isso a temperatura está limitada a 25 °C),
 a mortalidade é constante e os efeitos da ração, da densidade e do IMTA vêm de ensaios curtos.
