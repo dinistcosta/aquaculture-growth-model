@@ -32,6 +32,8 @@ PARAMETROS = {
         "a": 0.024,
         "b": 0.514,
         "c": 0.060,
+        # Fator de calibração: 1 = equação original, sem ajuste.
+        "fator_calibracao": 1.0,
         # Sobrevivência num ciclo de engorda: 80 %.
         # Muniesa, A. et al. (2020). Mapping the knowledge of the main diseases
         # affecting sea bass and sea bream in Mediterranean.
@@ -56,6 +58,13 @@ PARAMETROS = {
         "a": 0.010,
         "b": 0.68,
         "c": 0.05,
+        # CALIBRAÇÃO (não é um valor publicado): com a equação original, e a nossa
+        # curva de temperatura, o robalo demorava ~20 meses a chegar aos 400 g,
+        # acima dos 16–18 meses de Cardia & Lovatelli (2007). Multiplicamos o
+        # crescimento por 1,14 para chegar aos ~18 meses. O fator representa
+        # diferenças de regime de cultivo (densidade, ração, genética, tipo de
+        # instalação) entre o estudo original e os ciclos de referência.
+        "fator_calibracao": 1.14,
         # Sobrevivência num ciclo de engorda: 85 % (Muniesa et al., 2020).
         "sobrevivencia_ciclo": 0.85,
         # Duração de referência: 16–18 meses (usamos 17) (Cardia & Lovatelli, 2007).
@@ -94,7 +103,8 @@ def crescimento_diario(peso_g, temperatura_c, especie):
     peso_g pode ser um número ou um array com o peso de vários peixes.
     """
     p = PARAMETROS[especie]
-    return p["a"] * np.power(peso_g, p["b"]) * np.exp(p["c"] * temperatura_c)
+    return (p["a"] * np.power(peso_g, p["b"]) * np.exp(p["c"] * temperatura_c)
+            * p["fator_calibracao"])
 
 
 def perfil_temperatura(n_dias, data_inicio="2024-04-01", media=19.0, amplitude=4.0,
