@@ -185,7 +185,7 @@ def simular_ciclo(especie, n_dias=640, n_peixes=5000, temperatura=None,
 
     # Cada peixe tem o seu próprio ritmo de crescimento (variação individual)
     ritmo = gerador.normal(1.0, CV_CRESCIMENTO_INDIVIDUAL, n_peixes).clip(0.3, None)
-    pesos = np.full(n_peixes, peso_inicial_g)
+    pesos = np.full(n_peixes, float(peso_inicial_g))
     vivo = np.ones(n_peixes, dtype=bool)
 
     # Probabilidade diária de morrer, calculada para que, ao fim da duração de
