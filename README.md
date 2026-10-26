@@ -135,7 +135,7 @@ A curva ajusta-se bem (R² > 0,98), mas **o peso assintótico W∞ não é ident
 Testado com Python 3.14.
 
 ```bash
-git clone https://github.com/<utilizador>/aquaculture-growth-model.git
+git clone https://github.com/dinistcosta/aquaculture-growth-model.git
 cd aquaculture-growth-model
 python3 -m venv venv
 source venv/bin/activate          # no Windows: venv\Scripts\activate
