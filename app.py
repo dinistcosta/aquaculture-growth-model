@@ -1,5 +1,5 @@
 """
-App interativa: crescimento de dourada e robalo em aquacultura.
+App interativa: crescimento de peixes em aquacultura (dourada, robalo, pregado e linguado).
 
 Para correr no computador:   streamlit run app.py
 Também corre no browser, sem instalar nada, através do site do projeto
@@ -9,7 +9,7 @@ ATENÇÃO: os resultados são SIMULADOS com o modelo de src/growth.py.
 Quem usa a app pode pôr os dados de uma exploração (número e peso dos juvenis,
 data de entrada, temperaturas e pesagens) para comparar com o modelo.
 
-A página segue a ordem: cenário -> resultados -> modelo e referências.
+A página segue a ordem: cenário -> resultados (com figuras) -> notas sobre o modelo.
 Está em português e em inglês: o botão PT / EN ao lado do título muda a
 língua, e o link com ?lang=en abre logo em inglês.
 """
@@ -22,18 +22,26 @@ import pandas as pd
 import streamlit as st
 
 from src.growth import (PARAMETROS, CENARIOS_ALIMENTACAO, TEMPERATURA_MAXIMA_VALIDA, PESO_INICIAL_G,
-                        perfil_temperatura, simular_ciclo, dias_ate_peso, peso_critico)
+                        perfil_temperatura, simular_ciclo, dias_ate_peso, dias_ate_peso_medio, peso_critico)
 from src.regimes import (TEMPERATURA_TANQUE, DENSIDADE_SEM_EFEITO, DENSIDADE_MAXIMA,
                          fator_crescimento_densidade, FATOR_FCR_IMTA)
 
 N_DIAS = 1400      # chega para todos os cenários possíveis com os controlos
 N_PEIXES = 1000    # peixes simulados; os resultados são depois escalados ao nº de juvenis
-CORES = {"dourada": "#C9971C", "robalo": "#2F6690"}
-CIENTIFICOS = {"dourada": "Sparus aurata", "robalo": "Dicentrarchus labrax"}
-COR_TEMPERATURA = "#0E7490"
-COR_PESAGENS = "#0F2A36"
-COR_TEXTO = "#0F2A36"
-COR_TEXTO_SUAVE = "#4A5E67"
+ESPECIES = ["dourada", "robalo", "pregado", "linguado"]
+CIENTIFICOS = {e: PARAMETROS[e]["nome_cientifico"] for e in ESPECIES}
+
+# Paleta de "caderno científico": tinta escura sobre papel creme
+COR_PAPEL = "#F5F0E6"
+COR_TEXTO = "#22201C"
+COR_TEXTO_SUAVE = "#5A5248"
+COR_GRELHA = "#E2D8C6"
+COR_TINTA = "#1F5C66"          # azul-petróleo: temperatura, ligações e destaques
+COR_PESAGENS = "#22201C"
+CORES = {"dourada": "#A9781A", "robalo": "#2C5D8A", "pregado": "#9A4632", "linguado": "#4F7A3A"}
+LETRA = "IBM Plex Sans"
+LETRA_TITULOS = "Source Serif 4"
+
 URL_GITHUB = "https://github.com/dinistcosta/aquaculture-growth-model"
 URL_LINKEDIN = "https://www.linkedin.com/in/dinis-costa-a58a67380"
 
@@ -41,43 +49,60 @@ URL_LINKEDIN = "https://www.linkedin.com/in/dinis-costa-a58a67380"
 MODELO_TEMPERATURAS = "data,temperatura_c\n2024-04-01,16.5\n2024-04-08,17.0\n2024-04-15,17.2\n"
 MODELO_PESAGENS = "data,peso_medio_g\n2024-05-01,9.8\n2024-06-01,24.5\n2024-07-01,48.0\n"
 
+# Tamanho comercial de partida (g): 400 g para dourada e robalo (Cardia & Lovatelli, 2007);
+# 1 kg para o pregado (vende-se entre 0,7 e 2 kg; FAO); 350 g para o linguado (FAO).
+TAMANHO_COMERCIAL = {"dourada": 400, "robalo": 400, "pregado": 1000, "linguado": 350}
+# Peso dos juvenis à entrada (g): 3 g (Cardia & Lovatelli, 2007); pregado 10 g (exploração em
+# Portugal, ver src/growth.py); linguado 5 g (FAO).
+PESO_ENTRADA = {"dourada": PESO_INICIAL_G, "robalo": PESO_INICIAL_G, "pregado": 10.0, "linguado": 5.0}
+
 # Preços de partida (podem ser alterados na app):
-# - venda à saída da exploração, Grécia, 2023: dourada 4,89 €/kg e robalo 6,45 €/kg
-#   (EUMOFA, perfis de espécie "Gilthead seabream" e "European seabass");
-# - juvenil: 0,20 €/unidade = 73,2 milhões de euros / 366 milhões de juvenis em 2020
-#   (HAPO, Aquaculture in Greece, relatório anual de 2021; cálculo nosso);
-# - ração: ≈ 1,04 €/kg, preço médio em 2020 (gráfico do mesmo relatório da HAPO).
-# Segundo a HAPO (2021), a ração e os juvenis são cerca de 70 % do custo de produção.
-PRECO_VENDA = {"dourada": 4.89, "robalo": 6.45}
-PRECO_JUVENIL = 0.20
+# - venda à saída da exploração em 2023 (EUMOFA, perfis de espécie): dourada 4,89 e robalo
+#   6,45 €/kg (Grécia); pregado 11,29 €/kg (Portugal);
+# - linguado: 12,25 €/kg no mercado grossista de Madrid em 2013 (Morais et al., 2016);
+# - juvenil de dourada e robalo: 0,20 €/unidade = 73,2 milhões de euros / 366 milhões de
+#   juvenis em 2020 (HAPO, Aquaculture in Greece 2021; cálculo nosso);
+# - juvenil de linguado: os juvenis são 3,77 € por kg produzido (Bjørndal & Guillen, 2014,
+#   citado em Morais et al., 2016); 3,77 x 0,35 kg = 1,32 € por peixe (cálculo nosso);
+# - juvenil de pregado: SEM FONTE (pressuposto igual ao do linguado);
+# - ração: ≈ 1,04 €/kg, preço médio em 2020 na Grécia (HAPO, 2021).
+# Segundo a HAPO (2021), a ração e os juvenis são cerca de 70 % do custo de produção da dourada
+# e do robalo; usamos o mesmo valor nas outras espécies (pressuposto).
+PRECO_VENDA = {"dourada": 4.89, "robalo": 6.45, "pregado": 11.29, "linguado": 12.25}
+PRECO_JUVENIL = {"dourada": 0.20, "robalo": 0.20, "pregado": 1.32, "linguado": 1.32}
 PRECO_RACAO = 1.04
 PESO_RACAO_JUVENIS_NO_CUSTO = 0.70
 
 # Nomes das colunas em inglês que também são aceites nos CSV
 COLUNAS_EN = {"date": "data", "temperature_c": "temperatura_c", "mean_weight_g": "peso_medio_g"}
 
-# Ajustes ao tema do Streamlit:
-# - legendas e links com contraste suficiente (o Streamlit desbota-as com transparência);
-# - anel de foco visível para quem usa o teclado;
-# - linhas de texto com 65-75 caracteres e títulos com tamanhos em escada;
+# Tema de "caderno científico" por cima do tema do Streamlit:
+# - títulos com letra serifada, réguas finas, cartões como fichas de papel;
+# - legendas e ligações com contraste suficiente (o Streamlit desbota-as com transparência);
+# - anel de foco visível; linhas de texto com 65-75 caracteres;
 # - botões com pelo menos 44 px de altura no telemóvel.
-ESTILO = """
+ESTILO = f"""
 <style>
-  [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * { opacity: 1; color: #4A5E67; }
-  [data-testid="stMarkdownContainer"] a { color: #0B5468; text-underline-offset: 0.15em; }
-  [data-testid="stMarkdownContainer"] p, [data-testid="stCaptionContainer"] p { max-width: 72ch; }
+  h1, h2, h3 {{ font-family: '{LETRA_TITULOS}', Georgia, serif !important; letter-spacing: -0.01em; }}
+  h1 {{ font-size: clamp(2rem, 1.3rem + 2.4vw, 3rem) !important; line-height: 1.1 !important; font-weight: 600 !important; }}
+  h2 {{ font-size: 1.55rem !important; font-weight: 600 !important; padding-top: 1.75rem !important;
+        border-bottom: 1px solid {COR_TEXTO}; padding-bottom: 0.35rem !important; margin-bottom: 0.75rem !important; }}
+  h3 {{ font-size: 1.2rem !important; font-weight: 600 !important; }}
+  hr {{ border: none !important; border-top: 3px double {COR_TEXTO_SUAVE} !important; opacity: 0.6; }}
+  [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {{ opacity: 1; color: {COR_TEXTO_SUAVE}; }}
+  [data-testid="stCaptionContainer"] em {{ font-family: '{LETRA_TITULOS}', Georgia, serif; font-style: italic; }}
+  [data-testid="stMarkdownContainer"] a {{ color: {COR_TINTA}; text-underline-offset: 0.15em; }}
+  [data-testid="stMarkdownContainer"] p, [data-testid="stCaptionContainer"] p {{ max-width: 72ch; }}
+  [data-testid="stVerticalBlockBorderWrapper"] {{ background: #FBF8F1; }}
   [data-testid="stButtonGroup"] button[aria-checked="true"],
-  [data-testid="stButtonGroup"] button[aria-checked="true"] * { color: #0B5468 !important; }
-  :focus-visible { outline: 2px solid #0B5468 !important; outline-offset: 2px; }
-  ::selection { background: #CFE6EC; }
-  h1 { font-size: clamp(1.9rem, 1.2rem + 2.2vw, 2.75rem) !important; line-height: 1.15 !important; }
-  h2 { font-size: 1.4rem !important; padding-top: 1.5rem !important; }
-  h3 { font-size: 1.15rem !important; }
-  [data-testid="stMetricValue"] { font-variant-numeric: tabular-nums; }
-  @media (max-width: 640px) {
-    [data-testid="stButtonGroup"] button, [data-testid="stLinkButton"] a { min-height: 44px; }
-    [data-testid="stMetricValue"] { font-size: 1.6rem; }
-  }
+  [data-testid="stButtonGroup"] button[aria-checked="true"] * {{ color: {COR_TINTA} !important; }}
+  :focus-visible {{ outline: 2px solid {COR_TINTA} !important; outline-offset: 2px; }}
+  ::selection {{ background: #E6D9BC; }}
+  [data-testid="stMetricValue"] {{ font-variant-numeric: tabular-nums; font-family: '{LETRA_TITULOS}', Georgia, serif; }}
+  @media (max-width: 640px) {{
+    [data-testid="stButtonGroup"] button, [data-testid="stLinkButton"] a {{ min-height: 44px; }}
+    [data-testid="stMetricValue"] {{ font-size: 1.6rem; }}
+  }}
 </style>
 """
 
@@ -106,12 +131,24 @@ def t(pt, en):
     return pt if idioma == "pt" else en
 
 
-NOMES = {"dourada": t("Dourada", "Sea bream"), "robalo": t("Robalo", "Sea bass")}
+NOMES = {"dourada": t("Dourada", "Sea bream"), "robalo": t("Robalo", "Sea bass"),
+         "pregado": t("Pregado", "Turbot"), "linguado": t("Linguado", "Sole")}
 MESES = t(["jan.", "fev.", "mar.", "abr.", "maio", "jun.", "jul.", "ago.", "set.", "out.", "nov.", "dez."],
           ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"])
 
-st.set_page_config(page_title=t("Modelo de crescimento de dourada e robalo",
-                                "Sea bream and sea bass growth model"),
+# Fontes dos valores de partida de cada espécie (aparecem nos cartões)
+FONTES = {
+    "dourada": {"crescimento": "Mayer et al. (2012)", "sobrevivencia": "Muniesa et al. (2020)",
+                "fcr": "Kallitsis & Avramidis (2025)"},
+    "robalo": {"crescimento": t("TGC calibrado (Cardia & Lovatelli, 2007)", "calibrated TGC (Cardia & Lovatelli, 2007)"),
+               "sobrevivencia": "Muniesa et al. (2020)", "fcr": "Kallitsis & Avramidis (2025)"},
+    "pregado": {"crescimento": t("TGC calibrado (FAO)", "calibrated TGC (FAO)"),
+                "sobrevivencia": t("pressuposto", "assumption"), "fcr": "FAO"},
+    "linguado": {"crescimento": t("TGC calibrado (FAO)", "calibrated TGC (FAO)"),
+                 "sobrevivencia": "Quental-Ferreira et al. (2010)", "fcr": "Valente et al. (2011)"},
+}
+
+st.set_page_config(page_title=t("Crescimento de peixes em aquacultura", "Fish growth in aquaculture"),
                    page_icon=":material/show_chart:", layout="wide")
 st.markdown(ESTILO, unsafe_allow_html=True)
 
@@ -131,6 +168,11 @@ def milhares(numero):
 def mes_e_ano(data):
     """Escreve uma data como mês e ano (ex.: out. 2025 ou Oct 2025)."""
     return f"{MESES[data.month - 1]} {data.year}"
+
+
+def gramas(peso):
+    """Escreve um peso sem casas decimais inúteis (3 g, 7,5 g)."""
+    return virgula(peso, 1).replace(",0", "").replace(".0", "")
 
 
 def ler_csv(ficheiro, coluna):
@@ -197,38 +239,53 @@ def eixo_de_meses():
 
 
 def com_estilo(grafico):
-    """Títulos dos gráficos com as cores e a letra do tema."""
-    return grafico.configure_title(color=COR_TEXTO, subtitleColor=COR_TEXTO_SUAVE, fontSize=15,
-                                   subtitleFontSize=12, anchor="start").configure_axis(
-        labelColor=COR_TEXTO_SUAVE, titleColor=COR_TEXTO_SUAVE).configure_legend(labelColor=COR_TEXTO)
+    """Gráficos com o aspeto de figura de artigo: títulos serifados, grelha fina e pontilhada."""
+    return (grafico.configure(font=LETRA)
+            .configure_title(font=LETRA_TITULOS, color=COR_TEXTO, fontSize=16, fontWeight=600,
+                             subtitleFont=LETRA, subtitleColor=COR_TEXTO_SUAVE, subtitleFontSize=12, anchor="start")
+            .configure_axis(labelColor=COR_TEXTO_SUAVE, titleColor=COR_TEXTO_SUAVE, gridColor=COR_GRELHA,
+                            gridDash=[2, 3], domainColor="#8A7F70", tickColor="#8A7F70", labelFontSize=11)
+            .configure_legend(labelColor=COR_TEXTO, titleColor=COR_TEXTO_SUAVE)
+            .configure_view(strokeWidth=0))
+
+
+# As figuras são numeradas pela ordem em que aparecem, como num artigo
+numero_figura = [0]
+
+
+def figura(grafico, legenda, coluna=st):
+    """Mostra um gráfico com uma legenda numerada por baixo (Fig. 1, Fig. 2, ...)."""
+    numero_figura[0] += 1
+    coluna.altair_chart(com_estilo(grafico), width="stretch")
+    coluna.caption(f"*Fig. {numero_figura[0]}.* {legenda}")
 
 
 # ---------------------------------------------------------------------------
 # 1. Cabeçalho (título, autor e botão da língua)
 # ---------------------------------------------------------------------------
 col_titulo, col_lingua = st.columns([8, 1], vertical_alignment="center")
-col_titulo.title(t("Modelo de crescimento de dourada e robalo", "Sea bream and sea bass growth model"))
+col_titulo.title(t("Crescimento de peixes em aquacultura", "Fish growth in aquaculture"))
 idioma_escolhido = col_lingua.segmented_control(
     "Idioma / Language", ["pt", "en"], default=idioma, required=True, key="idioma",
     format_func=str.upper, label_visibility="collapsed")
 st.query_params["lang"] = idioma_escolhido   # o link copiado abre na mesma língua
 
-st.markdown(t("Quanto tempo demoram a dourada e o robalo a chegar ao tamanho comercial, e quanta ração "
-              "gastam pelo caminho? Simulação do ciclo de engorda com parâmetros publicados, em jaula "
-              "no mar ou em tanque / RAS.",
-              "How long do sea bream and sea bass take to reach market size, and how much feed do "
-              "they use along the way? A grow-out simulation built on published parameters, for sea "
-              "cages or tanks / RAS."))
+st.markdown(t("Quanto tempo demoram a dourada, o robalo, o pregado e o linguado a chegar ao tamanho "
+              "comercial, quanta ração gastam e quanto custa produzi-los? Simulação do ciclo de engorda "
+              "com parâmetros publicados, em jaula no mar ou em tanque / RAS.",
+              "How long do sea bream, sea bass, turbot and sole take to reach market size, how much feed "
+              "do they use and what does it cost to produce them? A grow-out simulation built on "
+              "published parameters, for sea cages or tanks / RAS."))
 with st.container(horizontal=True, vertical_alignment="center", gap="small"):
     st.markdown(t("**Dinis Costa** · Mestrado em Biologia Marinha Aplicada",
                   "**Dinis Costa** · MSc in Applied Marine Biology"), width="content")
     st.link_button("LinkedIn", URL_LINKEDIN, icon=":material/person:")
     st.link_button("GitHub", URL_GITHUB, icon=":material/code:")
-    st.markdown(t("[Modelo e referências](#modelo)", "[Model and references](#modelo)"), width="content")
 st.caption(t("Resultados **simulados** com parâmetros da literatura científica; "
              "não são dados de nenhuma exploração.",
              "**Simulated** results based on parameters from the scientific literature; "
              "they are not data from any farm."))
+st.divider()
 
 
 # ---------------------------------------------------------------------------
@@ -237,13 +294,17 @@ st.caption(t("Resultados **simulados** com parâmetros da literatura científica
 # Cada controlo tem uma `key`: assim a escolha mantém-se quando se muda de língua.
 st.header(t("Cenário", "Scenario"), anchor="cenario")
 with st.container(border=True):
-    c1, c2, c3 = st.columns(3, gap="medium")
-    escolha = c1.segmented_control(
-        t("Espécie", "Species"), ["dourada", "robalo", "ambas"], default="ambas", required=True,
-        format_func=lambda e: NOMES.get(e, t("Ambas", "Both")), key="especie")
-    especies = ["dourada", "robalo"] if escolha == "ambas" else [escolha]
+    especies = st.pills(
+        t("Espécies", "Species"), ESPECIES, selection_mode="multi", default=["dourada", "robalo"],
+        format_func=lambda e: NOMES[e], key="especies",
+        help=t("O pregado e o linguado são criados sobretudo em tanques em terra, e os seus parâmetros "
+               "são os menos seguros do modelo (ver Notas sobre o modelo).",
+               "Turbot and sole are farmed mostly in land-based tanks, and their parameters are the "
+               "least certain in the model (see Notes on the model)."))
+    especies = [e for e in ESPECIES if e in (especies or [])]
 
-    sistema = c2.segmented_control(
+    c1, c2 = st.columns(2, gap="medium")
+    sistema = c1.segmented_control(
         t("Sistema de cultivo", "Farming system"), ["jaula", "tanque"], default="jaula", required=True,
         format_func=lambda s: t("Jaula no mar", "Sea cage") if s == "jaula" else t("Tanque / RAS", "Tank / RAS"),
         key="sistema",
@@ -254,27 +315,27 @@ with st.container(border=True):
                "(lowest in February, highest in August).  \n"
                "**Tank / RAS:** land-based tank with controlled (constant) temperature."))
 
-    alimentacao = c3.segmented_control(
+    alimentacao = c2.segmented_control(
         t("Alimentação", "Feeding"), ["saciedade", "restrita"], default="saciedade", required=True,
         format_func=lambda a: t("Até à saciedade", "To satiation") if a == "saciedade" else t("Restrita", "Restricted"),
         key="alimentacao",
         help=t("**Restrita:** 80 % da saciedade na dourada (Bonaldo et al., 2010) e "
-               "75 % no robalo (Türkmen et al., 2012).",
+               "75 % no robalo (Türkmen et al., 2012). Sem dados para o pregado e o linguado.",
                "**Restricted:** 80 % of satiation in sea bream (Bonaldo et al., 2010) and "
-               "75 % in sea bass (Türkmen et al., 2012)."))
+               "75 % in sea bass (Türkmen et al., 2012). No data for turbot and sole."))
 
     # Com um CSV de temperaturas carregado, o slider da temperatura deixa de ser usado
     usa_csv_temperatura = st.session_state.get("ficheiro_temp") is not None
     aviso_csv = t(" · substituída pelo CSV", " · replaced by the CSV") if usa_csv_temperatura else ""
 
-    c1, c2, c3 = st.columns(3, gap="medium")
+    c1, c2 = st.columns(2, gap="medium")
     densidade = None
     imta = False
     if sistema == "jaula":
         media = c1.slider(t("Temperatura média anual do mar (°C)", "Mean annual sea temperature (°C)") + aviso_csv,
                           15.0, 21.0, 19.0, 0.5, format="%.1f", key="media", disabled=usa_csv_temperatura)
         if "robalo" in especies:
-            with c3:
+            with c2:
                 st.space("small")
                 imta = st.toggle(
                     t("IMTA (robalo)", "IMTA (sea bass)"), key="imta",
@@ -287,21 +348,20 @@ with st.container(border=True):
             t("Temperatura do tanque (°C)", "Tank temperature (°C)") + aviso_csv,
             14.0, TEMPERATURA_MAXIMA_VALIDA, TEMPERATURA_TANQUE, 0.5, format="%.1f", key="temperatura_tanque",
             disabled=usa_csv_temperatura,
-            help=t(f"{virgula(TEMPERATURA_TANQUE, 0)} °C é o meio do intervalo 18–26 °C indicado pela FAO (2009). "
-                   f"O modelo não é válido acima de {virgula(TEMPERATURA_MAXIMA_VALIDA, 0)} °C.",
-                   f"{virgula(TEMPERATURA_TANQUE, 0)} °C is the middle of the 18–26 °C range given by FAO (2009). "
-                   f"The model is not valid above {virgula(TEMPERATURA_MAXIMA_VALIDA, 0)} °C."))
-        densidade = c3.slider(
+            help=t(f"{virgula(TEMPERATURA_TANQUE, 0)} °C é o meio do intervalo 18–26 °C indicado pela FAO (2009) "
+                   "para a dourada. O pregado come melhor a 14–18 °C (FAO) e o linguado é criado a cerca de 20 °C "
+                   "(Morais et al., 2016).",
+                   f"{virgula(TEMPERATURA_TANQUE, 0)} °C is the middle of the 18–26 °C range given by FAO (2009) "
+                   "for sea bream. Turbot feeds best at 14–18 °C (FAO) and sole is farmed at about 20 °C "
+                   "(Morais et al., 2016)."))
+        densidade = c2.slider(
             t("Densidade (kg/m³)", "Stocking density (kg/m³)"), 10, DENSIDADE_MAXIMA, 40, 5, key="densidade",
             help=t(f"No robalo, até {DENSIDADE_SEM_EFEITO} kg/m³ não há efeito no crescimento; "
                    f"a {DENSIDADE_MAXIMA} kg/m³ a SGR desce 14 % (Sammouth et al., 2009). "
-                   "Na dourada não encontrámos dados, por isso a densidade só serve para calcular o volume de tanque.",
+                   "Nas outras espécies não encontrámos dados, por isso a densidade só serve para calcular o volume de tanque.",
                    f"In sea bass, density has no effect on growth up to {DENSIDADE_SEM_EFEITO} kg/m³; "
                    f"at {DENSIDADE_MAXIMA} kg/m³ SGR drops by 14 % (Sammouth et al., 2009). "
-                   "No data were found for sea bream, so density is only used to compute tank volume."))
-
-    peso_comercial = c2.slider(t("Tamanho comercial (g)", "Market size (g)"), 250, 600, 400, 25,
-                               key="peso_comercial")
+                   "No data were found for the other species, so density is only used to compute tank volume."))
 
     with st.expander(t("Dados da exploração: juvenis, datas, temperaturas e pesagens",
                        "Farm data: juveniles, dates, temperatures and weighings")):
@@ -309,15 +369,10 @@ with st.container(border=True):
                      "Os ficheiros são lidos apenas no browser e não são enviados para nenhum servidor.",
                      "The starting values are an example. Replace them with those of a farm. "
                      "Files are read only in the browser and are not sent to any server."))
-        c1, c2, c3 = st.columns(3, gap="medium")
+        c1, c2 = st.columns(2, gap="medium")
         n_juvenis = c1.number_input(t("Número de juvenis", "Number of juveniles"), 100, 5_000_000, N_PEIXES, 1000,
                                     key="n_juvenis")
-        peso_inicial = c2.number_input(
-            t("Peso dos juvenis à entrada (g)", "Juvenile weight at stocking (g)"), 1.0, 50.0, PESO_INICIAL_G, 0.5,
-            format="%.1f", key="peso_inicial",
-            help=t("O modelo foi feito para juvenis de 2–4 g; acima de 50 g não é fiável.",
-                   "The model was built for 2–4 g juveniles; above 50 g it is not reliable."))
-        data_entrada = c3.date_input(t("Data de entrada", "Stocking date"), datetime.date(2024, 4, 1),
+        data_entrada = c2.date_input(t("Data de entrada", "Stocking date"), datetime.date(2024, 4, 1),
                                      format="DD/MM/YYYY", key="data_entrada")
 
         st.markdown(t("**Medições (CSV).** Um ficheiro por tipo de medição, uma linha por medição. "
@@ -343,57 +398,76 @@ with st.container(border=True):
                                "exemplo_pesagens.csv", "text/csv", icon=":material/download:")
             erro_pesos = st.empty()
 
-    # Parâmetros do modelo: começam nos valores da literatura e podem ser trocados pelos de uma exploração
-    with st.expander(t("Parâmetros do modelo", "Model parameters")):
-        st.caption(t("Valores de partida da literatura (ver Modelo e referências). O TGC de uma exploração "
-                     "calcula-se com duas pesagens: (peso final^(1/3) − peso inicial^(1/3)) a dividir pela soma "
-                     "de (temperatura − 12) em todos os dias entre elas.",
-                     "Starting values from the literature (see Model and references). A farm's TGC is computed "
-                     "from two weighings: (final weight^(1/3) − initial weight^(1/3)) divided by the sum of "
-                     "(temperature − 12) over all the days between them."))
-        parametros, fcr_base = {}, {}
-        for coluna, e in zip(st.columns(2, gap="large"), ["dourada", "robalo"]):
+    # Parâmetros de cada espécie: começam nos valores da literatura e podem ser trocados pelos de uma exploração
+    with st.expander(t("Parâmetros de cada espécie: tamanhos, TGC, FCR e sobrevivência",
+                       "Species parameters: sizes, TGC, FCR and survival")):
+        st.caption(t("Valores de partida da literatura (ver Notas sobre o modelo). O TGC de uma exploração "
+                     "calcula-se com duas pesagens: (peso final^(1/3) − peso inicial^(1/3)) a dividir pela soma de "
+                     "(temperatura − base) em todos os dias entre elas; a base é 12 °C na dourada e no robalo "
+                     "e 0 °C no pregado e no linguado.",
+                     "Starting values from the literature (see Notes on the model). A farm's TGC is computed from "
+                     "two weighings: (final weight^(1/3) − initial weight^(1/3)) divided by the sum of "
+                     "(temperature − base) over all the days between them; the base is 12 °C for sea bream and "
+                     "sea bass and 0 °C for turbot and sole."))
+        parametros, fcr_base, peso_comercial, peso_inicial = {}, {}, {}, {}
+        colunas_param = st.columns(2, gap="large")
+        for i, e in enumerate(ESPECIES):
             p = PARAMETROS[e]
-            with coluna:
-                st.markdown(f"**{NOMES[e]}**")
-                tgc_1_3 = st.number_input(t("TGC (fase W^1/3)", "TGC (W^1/3 stage)"), 0.0003, 0.0060, p["tgc_1_3"],
+            with colunas_param[i % 2]:
+                st.markdown(f"**{NOMES[e]}** *{CIENTIFICOS[e]}*")
+                c1, c2 = st.columns(2)
+                peso_inicial[e] = c1.number_input(t("Peso de entrada (g)", "Stocking weight (g)"), 1.0, 200.0,
+                                                  PESO_ENTRADA[e], 0.5, format="%.1f", key=f"peso_inicial_{e}")
+                peso_comercial[e] = c2.number_input(t("Tamanho comercial (g)", "Market size (g)"), 100, 3000,
+                                                    TAMANHO_COMERCIAL[e], 25, key=f"peso_comercial_{e}")
+                tgc_1_3 = c1.number_input(t("TGC (fase W^1/3)", "TGC (W^1/3 stage)"), 0.0001, 0.0060, p["tgc_1_3"],
                                           0.0001, format="%.5f", key=f"tgc13_{e}")
                 tgc_2_3 = None
                 if p["tgc_2_3"]:
-                    tgc_2_3 = st.number_input(t("TGC (fase W^2/3)", "TGC (W^2/3 stage)"), 0.003, 0.060, p["tgc_2_3"],
-                                              0.0005, format="%.5f", key=f"tgc23_{e}")
+                    tgc_2_3 = c2.number_input(t("TGC (fase W^2/3)", "TGC (W^2/3 stage)"), 0.003, 0.060,
+                                              p["tgc_2_3"], 0.0005, format="%.5f", key=f"tgc23_{e}")
+                fcr_base[e] = c1.number_input("FCR", 0.6, 4.0, p["fcr"], 0.05, format="%.2f", key=f"fcr_{e}")
+                sobrevivencia = c2.number_input(t("Sobrevivência no ciclo (%)", "Survival over the cycle (%)"),
+                                                30, 100, round(p["sobrevivencia_ciclo"] * 100), 1, key=f"sobrev_{e}")
+                if tgc_2_3:
                     st.caption(t("Muda de fase aos ", "Changes stage at ")
                                + f"{virgula(peso_critico({'tgc_1_3': tgc_1_3, 'tgc_2_3': tgc_2_3}), 0)} g")
-                fcr_base[e] = st.number_input("FCR", 0.8, 4.0, p["fcr"], 0.05, format="%.2f", key=f"fcr_{e}")
-                sobrevivencia = st.number_input(t("Sobrevivência no ciclo (%)", "Survival over the cycle (%)"),
-                                                30, 100, round(p["sobrevivencia_ciclo"] * 100), 1, key=f"sobrev_{e}")
                 parametros[e] = {"tgc_1_3": tgc_1_3, "tgc_2_3": tgc_2_3, "sobrevivencia_ciclo": sobrevivencia / 100}
 
     with st.expander(t("Preços e custos", "Prices and costs")):
-        st.caption(t("Valores de partida: preço de venda à saída da exploração na Grécia em 2023 (EUMOFA); "
-                     "juvenil e ração na Grécia em 2020 (HAPO, 2021). Os preços mudam de ano para ano: "
-                     "convém usar os da exploração.",
-                     "Starting values: ex-farm sale price in Greece in 2023 (EUMOFA); juveniles and feed in "
-                     "Greece in 2020 (HAPO, 2021). Prices change from year to year: a farm's own prices are best."))
-        c1, c2, c3, c4 = st.columns(4, gap="medium")
-        preco_venda = {
-            "dourada": c1.number_input(t("Venda dourada (€/kg)", "Sea bream sale (€/kg)"), 0.0, 50.0,
-                                       PRECO_VENDA["dourada"], 0.10, format="%.2f", key="venda_dourada"),
-            "robalo": c2.number_input(t("Venda robalo (€/kg)", "Sea bass sale (€/kg)"), 0.0, 50.0,
-                                      PRECO_VENDA["robalo"], 0.10, format="%.2f", key="venda_robalo")}
-        preco_juvenil = c3.number_input(t("Juvenil (€/unidade)", "Juvenile (€/unit)"), 0.0, 5.0, PRECO_JUVENIL,
-                                        0.01, format="%.2f", key="preco_juvenil")
-        preco_racao = c4.number_input(t("Ração (€/kg)", "Feed (€/kg)"), 0.0, 10.0, PRECO_RACAO, 0.05,
+        st.caption(t("Valores de partida: venda à saída da exploração em 2023 (EUMOFA; linguado: mercado de "
+                     "Madrid em 2013); juvenis e ração na Grécia em 2020 (HAPO, 2021); juvenil de linguado a "
+                     "partir de Bjørndal & Guillen (2014); juvenil de pregado sem fonte. Os preços mudam de ano "
+                     "para ano: convém usar os da exploração.",
+                     "Starting values: ex-farm sale price in 2023 (EUMOFA; sole: Madrid market in 2013); "
+                     "juveniles and feed in Greece in 2020 (HAPO, 2021); sole juvenile from Bjørndal & Guillen "
+                     "(2014); turbot juvenile without a source. Prices change from year to year: a farm's own "
+                     "prices are best."))
+        preco_venda, preco_juvenil = {}, {}
+        colunas_preco = st.columns(4, gap="medium")
+        for coluna, e in zip(colunas_preco, ESPECIES):
+            preco_venda[e] = coluna.number_input(t(f"Venda {NOMES[e].lower()} (€/kg)", f"{NOMES[e]} sale (€/kg)"),
+                                                 0.0, 50.0, PRECO_VENDA[e], 0.10, format="%.2f", key=f"venda_{e}")
+            preco_juvenil[e] = coluna.number_input(t(f"Juvenil {NOMES[e].lower()} (€)", f"{NOMES[e]} juvenile (€)"),
+                                                   0.0, 10.0, PRECO_JUVENIL[e], 0.01, format="%.2f",
+                                                   key=f"juvenil_{e}")
+        preco_racao = st.number_input(t("Ração (€/kg)", "Feed (€/kg)"), 0.0, 10.0, PRECO_RACAO, 0.05,
                                       format="%.2f", key="preco_racao")
 
+if not especies:
+    st.info(t("Escolha pelo menos uma espécie no cenário.", "Choose at least one species in the scenario."),
+              icon=":material/info:")
+    st.stop()
+
 # É um exemplo enquanto os dados da exploração e os parâmetros estiverem nos valores de partida
-e_exemplo = (n_juvenis == N_PEIXES and peso_inicial == PESO_INICIAL_G and data_entrada == datetime.date(2024, 4, 1)
+e_exemplo = (n_juvenis == N_PEIXES and data_entrada == datetime.date(2024, 4, 1)
              and ficheiro_temp is None and ficheiro_pesos is None
              and all(parametros[e]["tgc_1_3"] == PARAMETROS[e]["tgc_1_3"]
                      and parametros[e]["tgc_2_3"] == PARAMETROS[e]["tgc_2_3"]
                      and fcr_base[e] == PARAMETROS[e]["fcr"]
                      and parametros[e]["sobrevivencia_ciclo"] == PARAMETROS[e]["sobrevivencia_ciclo"]
-                     for e in ("dourada", "robalo")))
+                     and peso_inicial[e] == PESO_ENTRADA[e]
+                     for e in ESPECIES))
 
 
 # ---------------------------------------------------------------------------
@@ -415,15 +489,18 @@ if ficheiro_temp is not None:
                         "com medições; os restantes são completados com a média do mesmo dia do ano).",
                         f"Temperature: farm measurements ({dias_medidos} days of the cycle "
                         "measured; the rest are filled with the mean for the same day of the year)."))
-        if temperatura.max() > TEMPERATURA_MAXIMA_VALIDA:
-            st.warning(t(f"Há temperaturas acima de {virgula(TEMPERATURA_MAXIMA_VALIDA, 0)} °C. "
-                         "O modelo não é válido aí, por isso foram limitadas a esse valor.",
-                         f"Some temperatures are above {virgula(TEMPERATURA_MAXIMA_VALIDA, 0)} °C. "
-                         "The model is not valid there, so they were capped at that value."),
-                       icon=":material/warning:")
-            temperatura = np.minimum(temperatura, TEMPERATURA_MAXIMA_VALIDA)
     except ValueError as erro:
         erro_temp.error(str(erro))
+
+# Temperaturas acima do limite de cada espécie: o modelo deixa de as usar (limita-as ao máximo)
+for e in especies:
+    maxima = PARAMETROS[e]["temperatura_maxima"]
+    if temperatura.max() > maxima:
+        st.warning(t(f"{NOMES[e]}: há temperaturas acima de {virgula(maxima, 0)} °C, o limite do modelo para "
+                     "esta espécie. Acima disso o crescimento foi calculado como se a água estivesse a esse valor.",
+                     f"{NOMES[e]}: some temperatures are above {virgula(maxima, 0)} °C, the model's limit for this "
+                     "species. Above it, growth was computed as if the water were at that value."),
+                   icon=":material/warning:")
 
 pesagens = None
 if ficheiro_pesos is not None:
@@ -447,51 +524,53 @@ if ficheiro_pesos is not None:
 # ---------------------------------------------------------------------------
 @st.cache_data(show_spinner=False)
 def simular(especie, temperatura, fator_crescimento, fcr, peso_inicial, data_entrada, parametros):
-    """Corre a simulação (o resultado fica guardado para não repetir contas)."""
-    return simular_ciclo(especie, n_dias=N_DIAS, n_peixes=N_PEIXES, temperatura=temperatura,
-                         data_inicio=str(data_entrada), peso_inicial_g=peso_inicial,
-                         fator_crescimento=fator_crescimento, fcr=fcr, parametros=parametros, semente=42)
+    """Corre a simulação (o resultado fica guardado para não repetir contas).
+
+    Devolve a tabela diária e o peso de cada peixe de 5 em 5 dias (para o histograma da colheita).
+    """
+    tabela = simular_ciclo(especie, n_dias=N_DIAS, n_peixes=N_PEIXES, temperatura=temperatura,
+                           data_inicio=str(data_entrada), peso_inicial_g=peso_inicial,
+                           fator_crescimento=fator_crescimento, fcr=fcr, parametros=parametros, semente=42,
+                           guardar_pesos_cada=5)
+    pesos = tabela.attrs.pop("pesos")    # fora da tabela: o pandas não junta tabelas com arrays nos atributos
+    return tabela, pesos
 
 
 def simular_especie(especie):
     """Junta os efeitos do cenário escolhido e escala o resultado ao nº de juvenis."""
-    cenario = CENARIOS_ALIMENTACAO[especie][alimentacao]
+    sem_restricao = CENARIOS_ALIMENTACAO.get(especie, {}).get("saciedade", {"fator_crescimento": 1.0, "fator_fcr": 1.0})
+    cenario = CENARIOS_ALIMENTACAO.get(especie, {}).get(alimentacao, sem_restricao)
     fator_crescimento = cenario["fator_crescimento"]
     fcr = fcr_base[especie] * cenario["fator_fcr"]
     if especie == "robalo" and densidade is not None:
         fator_crescimento *= fator_crescimento_densidade(densidade)
     if especie == "robalo" and imta:
         fcr *= FATOR_FCR_IMTA
-    sim = simular(especie, temperatura, fator_crescimento, fcr, peso_inicial, data_entrada, parametros[especie])
+    sim, pesos = simular(especie, temperatura, fator_crescimento, fcr, peso_inicial[especie], data_entrada,
+                         parametros[especie])
 
     # Simulamos 1 000 peixes; para outro número de juvenis, os totais crescem na mesma proporção
     escala = n_juvenis / N_PEIXES
-    return sim.assign(n_peixes=(sim["n_peixes"] * escala).round().astype(int),
-                      biomassa_kg=sim["biomassa_kg"] * escala,
-                      racao_kg=sim["racao_kg"] * escala,
-                      mortos=(sim["mortos"] * escala).round().astype(int))
+    sim = sim.assign(n_peixes=(sim["n_peixes"] * escala).round().astype(int),
+                     biomassa_kg=sim["biomassa_kg"] * escala,
+                     racao_kg=sim["racao_kg"] * escala,
+                     mortos=(sim["mortos"] * escala).round().astype(int))
+    return sim, pesos
 
 
 def fontes(especie):
     """Fontes dos números do cartão, conforme o cenário escolhido."""
-    p = parametros[especie]
-    if p["tgc_1_3"] != PARAMETROS[especie]["tgc_1_3"] or p["tgc_2_3"] != PARAMETROS[especie]["tgc_2_3"]:
-        lista = [t("Crescimento: TGC introduzido", "Growth: TGC entered")]
-    elif especie == "dourada":
-        lista = [t("Crescimento", "Growth") + ": Mayer et al. (2012)"]
-    else:
-        lista = [t("Crescimento: TGC calibrado (Cardia & Lovatelli, 2007)",
-                   "Growth: calibrated TGC (Cardia & Lovatelli, 2007)")]
+    p, f = parametros[especie], FONTES[especie]
+    tgc_mudou = p["tgc_1_3"] != PARAMETROS[especie]["tgc_1_3"] or p["tgc_2_3"] != PARAMETROS[especie]["tgc_2_3"]
+    lista = [t("Crescimento", "Growth") + ": " + (t("TGC introduzido", "TGC entered") if tgc_mudou else f["crescimento"])]
     sobrevivencia_lit = p["sobrevivencia_ciclo"] == PARAMETROS[especie]["sobrevivencia_ciclo"]
     lista.append(t("Sobrevivência", "Survival") + ": "
-                 + ("Muniesa et al. (2020)" if sobrevivencia_lit else t("introduzida", "entered")))
-    lista.append("FCR: " + ("Kallitsis & Avramidis (2025)" if fcr_base[especie] == PARAMETROS[especie]["fcr"]
-                            else t("introduzido", "entered")))
+                 + (f["sobrevivencia"] if sobrevivencia_lit else t("introduzida", "entered")))
+    lista.append("FCR: " + (f["fcr"] if fcr_base[especie] == PARAMETROS[especie]["fcr"] else t("introduzido", "entered")))
     if alimentacao == "restrita":
+        restrita = {"dourada": "Bonaldo et al. (2010)", "robalo": "Türkmen et al. (2012)"}
         lista.append(t("Ração restrita", "Restricted feeding") + ": "
-                     + ("Bonaldo et al. (2010)" if especie == "dourada" else "Türkmen et al. (2012)"))
-    if sistema == "tanque":
-        lista.append(t("Temperatura do tanque", "Tank temperature") + ": FAO (2009)")
+                     + restrita.get(especie, t("sem dados (igual à saciedade)", "no data (same as satiation)")))
     if especie == "robalo" and densidade is not None:
         lista.append(t("Densidade", "Density") + ": Sammouth et al. (2009)")
     if especie == "robalo" and imta:
@@ -500,134 +579,125 @@ def fontes(especie):
 
 
 with st.spinner(t("A simular...", "Simulating...")):
-    simulacoes = {e: simular_especie(e) for e in especies}
-dias_alvo = {e: dias_ate_peso(s, peso_comercial) for e, s in simulacoes.items()}
+    resultados = {e: simular_especie(e) for e in especies}
+simulacoes = {e: r[0] for e, r in resultados.items()}
+pesos_individuais = {e: r[1] for e, r in resultados.items()}
+dias_alvo = {e: dias_ate_peso(s, peso_comercial[e]) for e, s in simulacoes.items()}
 
 
 # ---------------------------------------------------------------------------
-# 5. Resultados: um cartão por espécie, frase-resumo e calendário de produção
+# 5. Resultados: um cartão por espécie e calendário de produção
 # ---------------------------------------------------------------------------
 st.header(t("Resultados", "Results"), anchor="resultados")
 if e_exemplo:
-    st.caption(t("**Exemplo** com os valores de partida: 1 000 juvenis de 3 g a entrar a 1 de abril, com os "
-                 "parâmetros da literatura. Para usar os dados de uma exploração, abrir **Dados da exploração** "
-                 "no painel do cenário.",
-                 "**Example** with the starting values: 1,000 juveniles of 3 g stocked on 1 April, with "
-                 "parameters from the literature. To use a farm's data, open **Farm data** in the scenario panel."))
+    st.caption(t("**Exemplo** com os valores de partida: 1 000 juvenis a entrar a 1 de abril, com os parâmetros da "
+                 "literatura. Para usar os dados de uma exploração, abrir **Dados da exploração** no painel do cenário.",
+                 "**Example** with the starting values: 1,000 juveniles stocked on 1 April, with parameters from the "
+                 "literature. To use a farm's data, open **Farm data** in the scenario panel."))
 for aviso in avisos:
     st.caption(aviso)
 
-colunas = st.columns(len(especies), gap="medium")
-for coluna, especie in zip(colunas, especies):
-    sim = simulacoes[especie]
-    dia = dias_alvo[especie]
-    with coluna.container(border=True):
-        # Quadrado com a cor da espécie nos gráficos
-        marca = (f'<span style="display:inline-block;width:0.7em;height:0.7em;border-radius:2px;'
-                 f'background:{CORES[especie]};margin-right:0.4em"></span>')
-        st.markdown(f"### {marca}{NOMES[especie]} &nbsp;*{CIENTIFICOS[especie]}*", unsafe_allow_html=True)
-        if dia is None:
-            st.error(t(f"Não chega aos {peso_comercial} g em {N_DIAS} dias. "
-                       "Experimente uma temperatura mais alta ou um tamanho comercial menor.",
-                       f"Does not reach {peso_comercial} g within {N_DIAS} days. "
-                       "Try a higher temperature or a smaller market size."))
-            continue
-        ate_peso = sim.loc[:dia]
-        ganho_biomassa = ate_peso["biomassa_kg"].iloc[-1] - n_juvenis * peso_inicial / 1000
-        fcr = ate_peso["racao_kg"].sum() / ganho_biomassa
-        with st.container(horizontal=True, gap="medium"):
-            st.metric(t(f"Dias até {peso_comercial} g", f"Days to {peso_comercial} g"), dia,
-                      delta=t(f"≈ {virgula(dia / 30.4)} meses", f"≈ {virgula(dia / 30.4)} months"),
-                      delta_color="off", delta_arrow="off", width="content")
-            st.metric("FCR", virgula(fcr, 2), width="content",
-                      help=t("FCR económico: kg de ração por kg de peixe produzido, incluindo a ração comida "
-                             "pelos peixes que morreram.",
-                             "Economic FCR: kg of feed per kg of fish produced, including feed eaten by fish "
-                             "that died."))
-            st.metric(t("Sobrevivência", "Survival"), f"{sim.loc[dia, 'n_peixes'] / n_juvenis:.0%}", width="content")
-        st.caption(t("Despesca prevista: ", "Expected harvest: ") + mes_e_ano(sim.loc[dia, "data"]))
-        st.caption(t("Fontes: ", "Sources: ") + fontes(especie))
-
-# Frase-resumo quando se comparam as duas espécies
-if len(especies) == 2 and None not in dias_alvo.values():
-    diferenca = dias_alvo["robalo"] - dias_alvo["dourada"]
-    rapida, lenta = ("dourada", "robalo") if diferenca >= 0 else ("robalo", "dourada")
-    meses = virgula(abs(diferenca) / 30.4)
-    if idioma == "pt":
-        artigo = {"dourada": "a", "robalo": "o"}
-        frase = (f"Neste cenário, {artigo[rapida]} **{NOMES[rapida].lower()}** chega aos {peso_comercial} g "
-                 f"**{abs(diferenca)} dias** (≈ {meses} meses) antes {'da' if lenta == 'dourada' else 'do'} "
-                 f"**{NOMES[lenta].lower()}**.")
-    else:
-        frase = (f"In this scenario, **{NOMES[rapida].lower()}** reaches {peso_comercial} g "
-                 f"**{abs(diferenca)} days** (≈ {meses} months) before **{NOMES[lenta].lower()}**.")
-    st.markdown(frase)
+for inicio in range(0, len(especies), 2):          # dois cartões por linha
+    linha_especies = especies[inicio:inicio + 2]
+    for coluna, especie in zip(st.columns(2, gap="medium"), linha_especies):
+        sim = simulacoes[especie]
+        dia = dias_alvo[especie]
+        alvo_g = peso_comercial[especie]
+        with coluna.container(border=True):
+            # Quadrado com a cor da espécie nos gráficos
+            marca = (f'<span style="display:inline-block;width:0.7em;height:0.7em;border-radius:1px;'
+                     f'background:{CORES[especie]};margin-right:0.4em"></span>')
+            st.markdown(f"### {marca}{NOMES[especie]} &nbsp;*{CIENTIFICOS[especie]}*", unsafe_allow_html=True)
+            if dia is None:
+                st.error(t(f"Não chega aos {alvo_g} g em {N_DIAS} dias. "
+                           "Experimente uma temperatura mais alta ou um tamanho comercial menor.",
+                           f"Does not reach {alvo_g} g within {N_DIAS} days. "
+                           "Try a higher temperature or a smaller market size."))
+                continue
+            ate_peso = sim.loc[:dia]
+            ganho_biomassa = ate_peso["biomassa_kg"].iloc[-1] - n_juvenis * peso_inicial[especie] / 1000
+            fcr = ate_peso["racao_kg"].sum() / ganho_biomassa
+            with st.container(horizontal=True, gap="medium"):
+                st.metric(t(f"Dias até {alvo_g} g", f"Days to {alvo_g} g"), dia,
+                          delta=t(f"≈ {virgula(dia / 30.4)} meses", f"≈ {virgula(dia / 30.4)} months"),
+                          delta_color="off", delta_arrow="off", width="content")
+                st.metric("FCR", virgula(fcr, 2), width="content",
+                          help=t("FCR económico: kg de ração por kg de peixe produzido, incluindo a ração comida "
+                                 "pelos peixes que morreram.",
+                                 "Economic FCR: kg of feed per kg of fish produced, including feed eaten by fish "
+                                 "that died."))
+                st.metric(t("Sobrevivência", "Survival"), f"{sim.loc[dia, 'n_peixes'] / n_juvenis:.0%}",
+                          width="content")
+            st.caption(t(f"Juvenis de {gramas(peso_inicial[especie])} g · colheita prevista: ",
+                         f"{gramas(peso_inicial[especie])} g juveniles · expected harvest: ")
+                       + mes_e_ano(sim.loc[dia, "data"]))
+            st.caption("*" + t("Fontes: ", "Sources: ") + fontes(especie) + "*")
 
 # Cores e legenda comuns a todos os gráficos
 escala_cor = alt.Scale(domain=[NOMES[e] for e in especies], range=[CORES[e] for e in especies])
 cor = alt.Color("nome:N", title=None, scale=escala_cor,
-                legend=alt.Legend(orient="top-left", direction="horizontal",
+                legend=alt.Legend(orient="top", direction="horizontal", offset=6,
                                   symbolType="stroke", symbolStrokeWidth=3, symbolOpacity=1,
                                   labelFontSize=13))
 especie_tt = alt.Tooltip("nome:N", title=t("Espécie", "Species"))
+ordem_nomes = [NOMES[e] for e in especies]
 
-# Calendário de produção: da entrada dos juvenis à despesca, em meses do calendário
+# Calendário de produção: da entrada dos juvenis à colheita, em meses do calendário
 calendario = pd.DataFrame([{"nome": NOMES[e], "inicio": pd.Timestamp(data_entrada), "fim": simulacoes[e].loc[d, "data"],
-                            "rotulo": t("despesca ", "harvest ") + mes_e_ano(simulacoes[e].loc[d, "data"])}
+                            "rotulo": t("colheita ", "harvest ") + mes_e_ano(simulacoes[e].loc[d, "data"])}
                            for e, d in dias_alvo.items() if d is not None])
 if not calendario.empty:
     fim_eixo = calendario["fim"].max() + pd.Timedelta(days=20)
     escala_t = alt.Scale(domain=[calendario["inicio"].min(), fim_eixo])
-    barras = alt.Chart(calendario).mark_bar(height=16, cornerRadius=3).encode(
+    barras = alt.Chart(calendario).mark_bar(height=16, cornerRadius=2).encode(
         x=alt.X("inicio:T", scale=escala_t, axis=eixo_de_meses()), x2="fim:T",
-        y=alt.Y("nome:N", title=None, sort=[NOMES[e] for e in especies],
+        y=alt.Y("nome:N", title=None, sort=ordem_nomes,
                 axis=alt.Axis(labelFontSize=13, labelPadding=8, domain=False, ticks=False)),
         color=alt.Color("nome:N", scale=escala_cor, legend=None),
         tooltip=[especie_tt, alt.Tooltip("inicio:T", title=t("Entrada", "Stocking"), format="%d/%m/%Y"),
-                 alt.Tooltip("fim:T", title=t("Despesca", "Harvest"), format="%d/%m/%Y")])
+                 alt.Tooltip("fim:T", title=t("Colheita", "Harvest"), format="%d/%m/%Y")])
     # Rótulo dentro da barra, encostado ao fim (cabe em qualquer largura de ecrã)
     rotulos = alt.Chart(calendario).mark_text(align="right", dx=-8, fontSize=12, color="white",
                                               fontWeight=600).encode(
-        x=alt.X("fim:T", scale=escala_t), y=alt.Y("nome:N", sort=[NOMES[e] for e in especies]), text="rotulo:N")
-    st.altair_chart(com_estilo((barras + rotulos).properties(
-        height=alt.Step(36),
-        title=alt.Title(t("Calendário de produção", "Production calendar"),
-                        subtitle=t("Da entrada dos juvenis à despesca", "From stocking to harvest")))),
-        width="stretch")
+        x=alt.X("fim:T", scale=escala_t), y=alt.Y("nome:N", sort=ordem_nomes), text="rotulo:N")
+    figura((barras + rotulos).properties(height=alt.Step(36),
+                                         title=alt.Title(t("Calendário de produção", "Production calendar"))),
+           t("Da entrada dos juvenis à colheita de cada espécie, no calendário.",
+             "From stocking to harvest for each species, on the calendar."))
 
 
 # ---------------------------------------------------------------------------
-# 6. Gráficos e dados
+# 6. Figuras, por separadores
 # ---------------------------------------------------------------------------
-aba_crescimento, aba_biomassa, aba_custos, aba_dados = st.tabs(
-    t(["Crescimento", "Biomassa", "Custos", "Dados"], ["Growth", "Biomass", "Costs", "Data"]))
+aba_crescimento, aba_colheita, aba_indicadores, aba_custos, aba_entrada, aba_dados = st.tabs(
+    t(["Crescimento", "Colheita", "Indicadores", "Custos", "Entrada", "Dados"],
+      ["Growth", "Harvest", "Indicators", "Costs", "Stocking", "Data"]))
+
+dia_maximo = min(N_DIAS, int(max(d or N_DIAS for d in dias_alvo.values()) * 1.15))
+if pesagens is not None:
+    dia_maximo = max(dia_maximo, min(N_DIAS, int(pesagens["dia"].max()) + 10))
+escala_x = alt.Scale(domain=[0, dia_maximo], nice=False)
+eixo_x = alt.X("dia:Q", scale=escala_x, title=t("Dias desde a entrada dos juvenis", "Days since stocking"))
+dia_tt = alt.Tooltip("dia:Q", title=t("Dia", "Day"))
 
 with aba_crescimento:
-    dia_maximo = min(N_DIAS, int(max(d or N_DIAS for d in dias_alvo.values()) * 1.15))
-    if pesagens is not None:
-        dia_maximo = max(dia_maximo, min(N_DIAS, int(pesagens["dia"].max()) + 10))
-    escala_x = alt.Scale(domain=[0, dia_maximo], nice=False)
-    # O eixo do peso vai um pouco acima do tamanho comercial (ou da maior pesagem)
-    peso_maximo = peso_comercial * 1.6
+    # O eixo do peso vai um pouco acima do maior tamanho comercial (ou da maior pesagem)
+    peso_maximo = max(peso_comercial[e] for e in especies) * 1.5
     if pesagens is not None:
         peso_maximo = max(peso_maximo, pesagens["valor"].max() * 1.1)
     escala_y = alt.Scale(domain=[0, peso_maximo], nice=False)   # o que passa do topo é cortado (clip)
 
-    # Tabela "longa" com as duas espécies, um ponto de 2 em 2 dias (gráfico mais leve)
+    # Tabela "longa" com as espécies, um ponto de 2 em 2 dias (gráfico mais leve)
     dados = pd.concat([
         s.iloc[:dia_maximo:2].assign(
             nome=NOMES[e],
             minimo=lambda d: (d["peso_medio_g"] - d["peso_dp_g"]).clip(lower=0),
             maximo=lambda d: d["peso_medio_g"] + d["peso_dp_g"])
         for e, s in simulacoes.items()])
-    eixo_x = alt.X("dia:Q", scale=escala_x,
-                   title=t("Dias desde a entrada dos juvenis", "Days since stocking of juveniles")
-                   + f" ({virgula(peso_inicial, 1).replace(',0', '').replace('.0', '')} g)")
-    dia_tt = alt.Tooltip("dia:Q", title=t("Dia", "Day"))
 
-    faixa = alt.Chart(dados).mark_area(opacity=0.15, clip=True).encode(
+    faixa = alt.Chart(dados).mark_area(opacity=0.14, clip=True).encode(
         x=eixo_x, y=alt.Y("minimo:Q", scale=escala_y), y2="maximo:Q", color=cor)
-    linha = alt.Chart(dados).mark_line(strokeWidth=2.5, clip=True).encode(
+    linha = alt.Chart(dados).mark_line(strokeWidth=2.3, clip=True).encode(
         x=eixo_x,
         y=alt.Y("peso_medio_g:Q", title=t("Peso médio (g)", "Mean weight (g)"), scale=escala_y,
                 axis=alt.Axis(format="d")),
@@ -637,24 +707,26 @@ with aba_crescimento:
                  alt.Tooltip("peso_medio_g:Q", title=t("Peso médio (g)", "Mean weight (g)"), format=".0f"),
                  alt.Tooltip("peso_dp_g:Q", title=t("Desvio-padrão (g)", "Standard deviation (g)"), format=".0f"),
                  alt.Tooltip("temperatura_c:Q", title=t("Temperatura (°C)", "Temperature (°C)"), format=".1f")])
-    alvo = alt.Chart(pd.DataFrame({"y": [peso_comercial]})).mark_rule(
-        strokeDash=[6, 4], color=COR_TEXTO_SUAVE).encode(y=alt.Y("y:Q", scale=escala_y))
-    alvo_texto = alt.Chart(pd.DataFrame({"y": [peso_comercial], "x": [0]})).mark_text(
-        align="left", dx=4, dy=-8, fontSize=12, color=COR_TEXTO_SUAVE).encode(
+    # Uma linha tracejada por cada tamanho comercial diferente
+    tamanhos = pd.DataFrame({"y": sorted({peso_comercial[e] for e in especies}), "x": 0})
+    alvo = alt.Chart(tamanhos).mark_rule(strokeDash=[6, 4], color=COR_TEXTO_SUAVE).encode(
+        y=alt.Y("y:Q", scale=escala_y))
+    alvo_texto = alt.Chart(tamanhos).mark_text(align="left", dx=4, dy=-8, fontSize=12, color=COR_TEXTO_SUAVE).encode(
         x=alt.X("x:Q", scale=escala_x), y=alt.Y("y:Q", scale=escala_y),
-        text=alt.value(t("tamanho comercial", "market size") + f" · {peso_comercial} g"))
-    chegadas = pd.DataFrame([{"nome": NOMES[e], "dia": d, "peso": peso_comercial}
+        text=alt.Text("y:Q", format="d"))
+    chegadas = pd.DataFrame([{"nome": NOMES[e], "dia": d, "peso": peso_comercial[e]}
                              for e, d in dias_alvo.items() if d is not None])
-    pontos = alt.Chart(chegadas).mark_point(filled=True, size=110, stroke="white", strokeWidth=2,
+    pontos = alt.Chart(chegadas).mark_point(filled=True, size=110, stroke=COR_PAPEL, strokeWidth=2,
                                             opacity=1).encode(
         x=alt.X("dia:Q", scale=escala_x), y=alt.Y("peso:Q", scale=escala_y), color=cor,
         tooltip=[especie_tt, alt.Tooltip("dia:Q", title=t("Chega ao tamanho comercial no dia",
                                                           "Reaches market size on day"))])
 
     camadas = faixa + linha + alvo + alvo_texto + pontos
-    # Uma linha por elemento do gráfico, para o subtítulo não ser cortado em ecrãs estreitos
-    subtitulo = [t("Linha: média da população", "Line: population mean"),
-                 t("Sombra: ± 1 desvio-padrão entre peixes", "Shading: ± 1 standard deviation between fish")]
+    legenda_peso = t("Peso médio dos peixes (linha) e ± 1 desvio-padrão entre peixes (sombra). As linhas tracejadas "
+                     "marcam o tamanho comercial (g) e os pontos o dia em que cada espécie lá chega.",
+                     "Mean fish weight (line) and ± 1 standard deviation between fish (shading). Dashed lines mark "
+                     "market size (g) and dots the day each species reaches it.")
     if pesagens is not None:
         # As pesagens da exploração, como losangos escuros por cima das curvas do modelo
         camadas += alt.Chart(pesagens).mark_point(shape="diamond", filled=True, size=90,
@@ -663,11 +735,8 @@ with aba_crescimento:
             tooltip=[alt.Tooltip("data:T", title=t("Pesagem", "Weighing"), format="%d/%m/%Y"), dia_tt,
                      alt.Tooltip("valor:Q", title=t("Peso médio medido (g)", "Measured mean weight (g)"),
                                  format=".1f")])
-        subtitulo.append(t("Losangos: pesagens da exploração", "Diamonds: farm weighings"))
-
-    grafico_peso = camadas.properties(
-        height=380, title=alt.Title(t("Peso médio dos peixes", "Mean fish weight"), subtitle=subtitulo))
-    st.altair_chart(com_estilo(grafico_peso), width="stretch")
+        legenda_peso += t(" Losangos: pesagens da exploração.", " Diamonds: farm weighings.")
+    figura(camadas.properties(height=380, title=alt.Title(t("Crescimento", "Growth"))), legenda_peso)
 
     # Comparação das pesagens com o modelo, no mesmo dia
     if pesagens is not None:
@@ -694,52 +763,114 @@ with aba_crescimento:
 
     dados_temp = pd.DataFrame({"dia": np.arange(dia_maximo), "temperatura": temperatura[:dia_maximo]})
     grafico_temp = alt.Chart(dados_temp).mark_area(
-        line={"color": COR_TEMPERATURA, "strokeWidth": 2},
+        line={"color": COR_TINTA, "strokeWidth": 2},
         color=alt.Gradient(gradient="linear", x1=1, x2=1, y1=1, y2=0,
-                           stops=[alt.GradientStop(color="white", offset=0),
-                                  alt.GradientStop(color=COR_TEMPERATURA, offset=1)]),
-        opacity=0.35).encode(
+                           stops=[alt.GradientStop(color=COR_PAPEL, offset=0),
+                                  alt.GradientStop(color=COR_TINTA, offset=1)]),
+        opacity=0.3).encode(
         x=eixo_x,
         y=alt.Y("temperatura:Q", title=t("Temperatura (°C)", "Temperature (°C)"),
                 scale=alt.Scale(domain=[10, 26]), axis=alt.Axis(values=[10, 14, 18, 22, 26])),
         y2=alt.datum(10),
         tooltip=[dia_tt, alt.Tooltip("temperatura:Q", title=t("Temperatura (°C)", "Temperature (°C)"),
                                      format=".1f")]
-    ).properties(height=200)
-    st.altair_chart(com_estilo(grafico_temp), width="stretch")
+    ).properties(height=180)
+    figura(grafico_temp, t("Temperatura da água ao longo do ciclo.", "Water temperature over the cycle."))
 
 
 # ---------------------------------------------------------------------------
-# 7. Biomassa e ração gasta (até ao tamanho comercial)
+# 7. Colheita: distribuição de tamanhos no dia em que a média chega ao tamanho comercial
 # ---------------------------------------------------------------------------
-with aba_biomassa:
-    peso_juvenis = virgula(peso_inicial).replace(",0", "").replace(".0", "")
-    st.markdown(t(f"**{milhares(n_juvenis)} juvenis** de {peso_juvenis} g. "
-                  "A biomassa é o peso total dos peixes vivos; a ração é a soma da ração dada desde o início.",
-                  f"**{milhares(n_juvenis)} juveniles** of {peso_juvenis} g. "
-                  "Biomass is the total weight of live fish; feed is the sum of feed given since stocking."))
+with aba_colheita:
+    st.markdown(t("Nem todos os peixes chegam juntos ao tamanho comercial: no dia em que **a média** lá chega, "
+                  "parte dos peixes ainda está abaixo.",
+                  "Not all fish reach market size together: on the day **the mean** gets there, some fish are "
+                  "still below it."))
+    especies_colheita = [e for e in especies if dias_alvo[e] is not None]
+    for inicio in range(0, len(especies_colheita), 2):
+        for coluna, e in zip(st.columns(2, gap="medium"), especies_colheita[inicio:inicio + 2]):
+            dia = dias_alvo[e]
+            dia_guardado = min((d for d in pesos_individuais[e] if d >= dia), default=max(pesos_individuais[e]))
+            pesos = pd.DataFrame({"peso": pesos_individuais[e][dia_guardado]})
+            acima = (pesos["peso"] >= peso_comercial[e]).mean()
+            cv = pesos["peso"].std() / pesos["peso"].mean()
+            barras = alt.Chart(pesos).mark_bar(color=CORES[e], opacity=0.85, binSpacing=1).encode(
+                x=alt.X("peso:Q", bin=alt.Bin(maxbins=28), title=t("Peso (g)", "Weight (g)")),
+                y=alt.Y("count():Q", title=t("Peixes", "Fish")),
+                tooltip=[alt.Tooltip("peso:Q", bin=alt.Bin(maxbins=28), title=t("Peso (g)", "Weight (g)")),
+                         alt.Tooltip("count():Q", title=t("Peixes", "Fish"))])
+            regra = alt.Chart(pd.DataFrame({"x": [peso_comercial[e]]})).mark_rule(
+                strokeDash=[6, 4], color=COR_TEXTO, strokeWidth=1.5).encode(x="x:Q")
+            figura((barras + regra).properties(height=240, title=alt.Title(NOMES[e])),
+                   t(f"Peso de cada peixe no dia {dia} ({peso_comercial[e]} g tracejado): "
+                     f"**{acima:.0%}** acima do tamanho comercial; coeficiente de variação de {cv:.0%}.",
+                     f"Weight of each fish on day {dia} ({peso_comercial[e]} g dashed): "
+                     f"**{acima:.0%}** above market size; coefficient of variation {cv:.0%}."), coluna)
+    st.caption(t("A variação entre peixes vem do pressuposto de 15 % de variação no ritmo de crescimento "
+                 "individual. Numa exploração, as triagens por tamanhos reduzem esta dispersão.",
+                 "Variation between fish comes from the assumed 15 % variation in individual growth rate. "
+                 "On a farm, size grading reduces this spread."))
 
-    # Uma linha por espécie e por dia, com a ração acumulada
+
+# ---------------------------------------------------------------------------
+# 8. Indicadores: SGR e FCR mês a mês, biomassa e ração
+# ---------------------------------------------------------------------------
+def indicadores_mensais(sim, nome):
+    """SGR e FCR económico em períodos de 30 dias, a partir da simulação diária."""
+    linhas = []
+    for inicio in range(0, dia_maximo - 30, 30):
+        a, b = sim.loc[inicio], sim.loc[inicio + 30]
+        ganho = b["biomassa_kg"] - a["biomassa_kg"]
+        racao = sim.loc[inicio + 1:inicio + 30, "racao_kg"].sum()
+        linhas.append({"nome": nome, "mes": inicio // 30 + 1, "data": b["data"],
+                       "sgr": 100 * (np.log(b["peso_medio_g"]) - np.log(a["peso_medio_g"])) / 30,
+                       "fcr": racao / ganho if ganho > 0 else np.nan})
+    return pd.DataFrame(linhas)
+
+
+with aba_indicadores:
+    mensal = pd.concat([indicadores_mensais(s, NOMES[e]) for e, s in simulacoes.items()])
+    mes_x = alt.X("mes:Q", title=t("Mês do ciclo", "Month of the cycle"), axis=alt.Axis(tickMinStep=1))
+    tooltip_mes = [especie_tt, alt.Tooltip("mes:Q", title=t("Mês", "Month")),
+                   alt.Tooltip("data:T", title=t("Fim do período", "End of period"), format="%m/%Y")]
+    grafico_sgr = alt.Chart(mensal).mark_line(point=alt.OverlayMarkDef(size=28), strokeWidth=2).encode(
+        x=mes_x, y=alt.Y("sgr:Q", title="SGR (%/dia)" if idioma == "pt" else "SGR (%/day)"), color=cor,
+        tooltip=tooltip_mes + [alt.Tooltip("sgr:Q", title="SGR", format=".2f")]
+    ).properties(height=250, title=alt.Title(t("Taxa de crescimento específica", "Specific growth rate")))
+    grafico_fcr = alt.Chart(mensal).mark_line(point=alt.OverlayMarkDef(size=28), strokeWidth=2, clip=True).encode(
+        x=mes_x, y=alt.Y("fcr:Q", title=t("FCR económico", "Economic FCR"), scale=alt.Scale(domain=[0, 5])),
+        color=cor, tooltip=tooltip_mes + [alt.Tooltip("fcr:Q", title="FCR", format=".2f")]
+    ).properties(height=250, title=alt.Title(t("FCR económico mês a mês", "Monthly economic FCR")))
+    c1, c2 = st.columns(2, gap="medium")
+    figura(grafico_sgr, t("Percentagem do peso ganha por dia, em períodos de 30 dias. Desce à medida que o peixe "
+                          "cresce e cai no inverno.",
+                          "Percentage of body weight gained per day, over 30-day periods. It falls as the fish "
+                          "grows and drops in winter."), c1)
+    figura(grafico_fcr, t("kg de ração por kg de biomassa ganha em cada mês. Valores acima de 5 (meses frios, em que "
+                          "os peixes quase não crescem mas continuam a morrer) ficam fora da escala.",
+                          "kg of feed per kg of biomass gained each month. Values above 5 (cold months, when fish "
+                          "barely grow but keep dying) are off the scale."), c2)
+
+    # Biomassa e ração acumulada (uma linha por espécie e por dia)
     dados_bio = pd.concat([
         s.iloc[:dia_maximo:2].assign(nome=NOMES[e], racao_acumulada=s["racao_kg"].cumsum().iloc[:dia_maximo:2])
         for e, s in simulacoes.items()])
-
-    grafico_biomassa = alt.Chart(dados_bio).mark_line(strokeWidth=2.5).encode(
+    grafico_biomassa = alt.Chart(dados_bio).mark_line(strokeWidth=2.3).encode(
         x=eixo_x, y=alt.Y("biomassa_kg:Q", title=t("Biomassa (kg)", "Biomass (kg)")), color=cor,
         tooltip=[especie_tt, dia_tt,
                  alt.Tooltip("biomassa_kg:Q", title=t("Biomassa (kg)", "Biomass (kg)"), format=",.0f"),
                  alt.Tooltip("n_peixes:Q", title=t("Peixes vivos", "Live fish"), format=",")]
-    ).properties(height=260, title=alt.Title(t("Biomassa", "Biomass")))
-    grafico_racao = alt.Chart(dados_bio).mark_line(strokeWidth=2.5, strokeDash=[6, 3]).encode(
+    ).properties(height=250, title=alt.Title(t("Biomassa", "Biomass")))
+    grafico_racao = alt.Chart(dados_bio).mark_line(strokeWidth=2.3, strokeDash=[6, 3]).encode(
         x=eixo_x, y=alt.Y("racao_acumulada:Q", title=t("Ração (kg)", "Feed (kg)")), color=cor,
         tooltip=[especie_tt, dia_tt,
                  alt.Tooltip("racao_acumulada:Q", title=t("Ração acumulada (kg)", "Cumulative feed (kg)"),
                              format=",.0f")]
-    ).properties(height=260, title=alt.Title(t("Ração acumulada", "Cumulative feed")))
-
-    col_bio, col_racao = st.columns(2, gap="medium")
-    col_bio.altair_chart(com_estilo(grafico_biomassa), width="stretch")
-    col_racao.altair_chart(com_estilo(grafico_racao), width="stretch")
+    ).properties(height=250, title=alt.Title(t("Ração acumulada", "Cumulative feed")))
+    c1, c2 = st.columns(2, gap="medium")
+    figura(grafico_biomassa, t(f"Peso total dos peixes vivos ({milhares(n_juvenis)} juvenis à entrada).",
+                               f"Total weight of live fish ({milhares(n_juvenis)} juveniles stocked)."), c1)
+    figura(grafico_racao, t("Soma da ração dada desde a entrada.", "Sum of feed given since stocking."), c2)
 
     # Resumo no dia em que cada espécie chega ao tamanho comercial (números alinhados à direita)
     linhas = []
@@ -755,7 +886,8 @@ with aba_biomassa:
                 simulacoes[e].loc[d, "biomassa_kg"] / densidade, 1)
         linhas.append(linha)
     if linhas:
-        st.markdown(t(f"**No dia em que chega aos {peso_comercial} g**", f"**On the day it reaches {peso_comercial} g**"))
+        st.markdown(t("**No dia em que cada espécie chega ao tamanho comercial**",
+                      "**On the day each species reaches market size**"))
         resumo = pd.DataFrame(linhas)
         st.dataframe(resumo, hide_index=True, column_config={
             c: st.column_config.NumberColumn(format="localized") for c in resumo.columns[1:]})
@@ -765,46 +897,153 @@ with aba_biomassa:
 
 
 # ---------------------------------------------------------------------------
-# 8. Custos e receita (no dia em que chega ao tamanho comercial)
+# 9. Custos e receita
 # ---------------------------------------------------------------------------
+def custo_total(custo_juvenis, custo_racao):
+    """Custo total estimado: a ração e os juvenis são cerca de 70 % do custo (HAPO, 2021)."""
+    return (custo_juvenis + custo_racao) / PESO_RACAO_JUVENIS_NO_CUSTO
+
+
 with aba_custos:
-    st.markdown(t(f"Contas no dia em que cada espécie chega aos {peso_comercial} g, com os preços de "
-                  "**Preços e custos** (no painel do cenário).",
-                  f"Figures on the day each species reaches {peso_comercial} g, using the prices in "
-                  "**Prices and costs** (in the scenario panel)."))
-    contas = {}
+    st.markdown(t("Contas com os preços de **Preços e custos** (no painel do cenário).",
+                  "Figures use the prices in **Prices and costs** (in the scenario panel)."))
+    contas, partes, margens = {}, [], []
     for e, d in dias_alvo.items():
         if d is None:
             continue
-        biomassa = simulacoes[e].loc[d, "biomassa_kg"]
-        racao = simulacoes[e].loc[:d, "racao_kg"].sum()
+        sim = simulacoes[e]
+        biomassa = sim.loc[d, "biomassa_kg"]
+        custo_juvenis = n_juvenis * preco_juvenil[e]
+        custo_racao = sim.loc[:d, "racao_kg"].sum() * preco_racao
+        total = custo_total(custo_juvenis, custo_racao)
         receita = biomassa * preco_venda[e]
-        custo_juvenis = n_juvenis * preco_juvenil
-        custo_racao = racao * preco_racao
-        # A ração e os juvenis são cerca de 70 % do custo de produção (HAPO, 2021)
-        custo_total = (custo_juvenis + custo_racao) / PESO_RACAO_JUVENIS_NO_CUSTO
         contas[NOMES[e]] = {
             t("Receita (€)", "Revenue (€)"): round(receita),
             t("Custo dos juvenis (€)", "Juvenile cost (€)"): round(custo_juvenis),
             t("Custo da ração (€)", "Feed cost (€)"): round(custo_racao),
-            t("Custo total estimado (€)", "Estimated total cost (€)"): round(custo_total),
-            t("Margem estimada (€)", "Estimated margin (€)"): round(receita - custo_total),
-            t("Custo por kg produzido (€/kg)", "Cost per kg produced (€/kg)"): round(custo_total / biomassa, 2),
+            t("Custo total estimado (€)", "Estimated total cost (€)"): round(total),
+            t("Margem estimada (€)", "Estimated margin (€)"): round(receita - total),
+            t("Custo por kg produzido (€/kg)", "Cost per kg produced (€/kg)"): round(total / biomassa, 2),
         }
+        for parte, valor in [(t("Juvenis", "Juveniles"), custo_juvenis), (t("Ração", "Feed"), custo_racao),
+                             (t("Outros (estimado)", "Other (estimated)"), total - custo_juvenis - custo_racao)]:
+            partes.append({"nome": NOMES[e], "parte": parte, "valor": valor, "receita": receita})
+        # Margem se a colheita fosse feita em cada dia do ciclo (de 5 em 5 dias)
+        racao_acumulada = sim["racao_kg"].cumsum() * preco_racao
+        for dia in range(0, dia_maximo, 5):
+            margens.append({"nome": NOMES[e], "dia": dia,
+                            "margem": sim.loc[dia, "biomassa_kg"] * preco_venda[e]
+                            - custo_total(custo_juvenis, racao_acumulada.loc[dia])})
+
     if contas:
-        tabela_contas = pd.DataFrame(contas)
-        st.dataframe(tabela_contas, column_config={
-            c: st.column_config.NumberColumn(format="localized") for c in tabela_contas.columns})
+        tabela_contas = pd.DataFrame(contas).rename_axis(t("Conta", "Item")).reset_index()
+        st.dataframe(tabela_contas, hide_index=True, column_config={
+            c: st.column_config.NumberColumn(format="localized") for c in tabela_contas.columns[1:]})
+
+        partes = pd.DataFrame(partes)
+        ordem_partes = [t("Juvenis", "Juveniles"), t("Ração", "Feed"), t("Outros (estimado)", "Other (estimated)")]
+        barras = alt.Chart(partes).mark_bar(height=18).encode(
+            y=alt.Y("nome:N", title=None, sort=ordem_nomes, axis=alt.Axis(labelFontSize=13, ticks=False, domain=False)),
+            x=alt.X("sum(valor):Q", title="€", stack="zero"),
+            color=alt.Color("parte:N", title=None, sort=ordem_partes,
+                            scale=alt.Scale(domain=ordem_partes, range=[COR_TEXTO_SUAVE, COR_TINTA, "#C9BBA3"]),
+                            legend=alt.Legend(orient="top", direction="horizontal")),
+            order=alt.Order("ordem:Q"),
+            tooltip=[especie_tt, alt.Tooltip("parte:N", title=t("Parte", "Item")),
+                     alt.Tooltip("valor:Q", title="€", format=",.0f")]
+        ).transform_calculate(ordem=f"indexof({ordem_partes}, datum.parte)")
+        receita = alt.Chart(partes.drop_duplicates("nome")).mark_tick(
+            thickness=3, size=30, color=COR_TEXTO).encode(
+            y=alt.Y("nome:N", sort=ordem_nomes), x="receita:Q",
+            tooltip=[especie_tt, alt.Tooltip("receita:Q", title=t("Receita (€)", "Revenue (€)"), format=",.0f")])
+        margens = pd.DataFrame(margens)
+        melhor = margens.loc[margens.groupby("nome")["margem"].idxmax()]
+        grafico_margem = alt.Chart(margens).mark_line(strokeWidth=2.3).encode(
+            x=eixo_x, y=alt.Y("margem:Q", title=t("Margem estimada (€)", "Estimated margin (€)")), color=cor,
+            tooltip=[especie_tt, dia_tt, alt.Tooltip("margem:Q", title="€", format=",.0f")])
+        zero = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(color=COR_TEXTO_SUAVE).encode(y="y:Q")
+        pontos_melhor = alt.Chart(melhor).mark_point(filled=True, size=100, stroke=COR_PAPEL, strokeWidth=2,
+                                                     opacity=1).encode(
+            x=alt.X("dia:Q", scale=escala_x), y="margem:Q", color=cor,
+            tooltip=[especie_tt, alt.Tooltip("dia:Q", title=t("Melhor dia de colheita", "Best harvest day")),
+                     alt.Tooltip("margem:Q", title="€", format=",.0f")])
+        c1, c2 = st.columns(2, gap="medium")
+        figura((barras + receita).properties(height=alt.Step(40), title=alt.Title(t("Custos", "Costs"))),
+               t("Custos até ao tamanho comercial (barras) e receita da venda (traço preto).",
+                 "Costs up to market size (bars) and sale revenue (black tick)."), c1)
+        figura((zero + grafico_margem + pontos_melhor).properties(
+                   height=260, title=alt.Title(t("Margem ao longo do ciclo", "Margin over the cycle"))),
+               t("Margem estimada se a colheita fosse feita nesse dia. O ponto marca o dia de maior margem.",
+                 "Estimated margin if the harvest were on that day. The dot marks the day of highest margin."), c2)
         st.caption(t("O custo total é estimado a partir da ração e dos juvenis, que são cerca de 70 % do custo "
-                     "de produção nas explorações gregas (HAPO, 2021); o resto (mão de obra, amortizações, "
-                     "outros) varia de exploração para exploração. É uma estimativa, não uma contabilidade.",
-                     "Total cost is estimated from feed and juveniles, which are about 70 % of production cost "
-                     "on Greek farms (HAPO, 2021); the rest (labour, depreciation, other) varies from farm to "
-                     "farm. It is an estimate, not an account."))
+                     "de produção da dourada e do robalo nas explorações gregas (HAPO, 2021); o resto (mão de "
+                     "obra, amortizações, outros) varia de exploração para exploração. Nas outras espécies "
+                     "usamos o mesmo valor (pressuposto). É uma estimativa, não uma contabilidade.",
+                     "Total cost is estimated from feed and juveniles, which are about 70 % of sea bream and "
+                     "sea bass production cost on Greek farms (HAPO, 2021); the rest (labour, depreciation, "
+                     "other) varies from farm to farm. The same share is assumed for the other species. It is "
+                     "an estimate, not an account."))
 
 
 # ---------------------------------------------------------------------------
-# 9. Tabela com os dados simulados (para descarregar)
+# 10. Mês de entrada: dias até ao tamanho comercial em muitos cenários
+# ---------------------------------------------------------------------------
+@st.cache_data(show_spinner=False)
+def mapa_entrada(especie, peso_inicial, peso_alvo, parametros, fator):
+    """Dias até ao tamanho comercial para cada mês de entrada (1–12) e temperatura média do mar (15–21 °C)."""
+    cenarios, temperaturas = [], []
+    for media_mar in range(15, 22):
+        for mes in range(1, 13):
+            _, curva = perfil_temperatura(N_DIAS, data_inicio=f"2024-{mes:02d}-01", media=float(media_mar))
+            cenarios.append({"media": media_mar, "mes": mes})
+            temperaturas.append(curva)
+    dias = dias_ate_peso_medio(especie, np.array(temperaturas), peso_inicial, peso_alvo, parametros, fator)
+    return pd.DataFrame(cenarios).assign(dias=dias)
+
+
+with aba_entrada:
+    especie_mapa = st.segmented_control(
+        t("Espécie", "Species"), especies, default=especies[0], required=True,
+        format_func=lambda e: NOMES[e], key="especie_mapa")
+    if especie_mapa not in especies:
+        especie_mapa = especies[0]
+    if sistema == "tanque":
+        st.markdown(t("Num tanque a temperatura é constante, por isso o mês de entrada não muda a duração do "
+                      "ciclo. O mapa mostra o caso da **jaula no mar**, com a curva sazonal de temperatura.",
+                      "In a tank the temperature is constant, so the stocking month does not change the cycle "
+                      "length. The map shows the **sea cage** case, with the seasonal temperature curve."))
+    fator = CENARIOS_ALIMENTACAO.get(especie_mapa, {}).get(alimentacao, {"fator_crescimento": 1.0})["fator_crescimento"]
+    mapa = mapa_entrada(especie_mapa, peso_inicial[especie_mapa], peso_comercial[especie_mapa],
+                        parametros[especie_mapa], fator)
+    mapa["meses"] = mapa["dias"] / 30.4
+    mapa["mes_nome"] = [MESES[m - 1] for m in mapa["mes"]]
+    celulas = alt.Chart(mapa).mark_rect(stroke=COR_PAPEL, strokeWidth=1.5).encode(
+        x=alt.X("mes_nome:O", sort=MESES, title=t("Mês de entrada dos juvenis", "Stocking month"),
+                axis=alt.Axis(labelAngle=0)),
+        y=alt.Y("media:O", sort="descending", title=t("Temperatura média do mar (°C)", "Mean sea temperature (°C)")),
+        color=alt.Color("meses:Q", title=t("Meses", "Months"),
+                        scale=alt.Scale(range=["#F1E7D2", "#7FA8A8", COR_TINTA, "#14343A"]),
+                        legend=alt.Legend(orient="right", gradientLength=180)),
+        tooltip=[alt.Tooltip("mes_nome:O", title=t("Entrada", "Stocking")),
+                 alt.Tooltip("media:O", title=t("Temperatura média (°C)", "Mean temperature (°C)")),
+                 alt.Tooltip("dias:Q", title=t("Dias", "Days"), format=".0f"),
+                 alt.Tooltip("meses:Q", title=t("Meses", "Months"), format=".1f")])
+    escuro = mapa["meses"] > mapa["meses"].quantile(0.55)
+    texto = alt.Chart(mapa.assign(escuro=escuro)).mark_text(fontSize=11).encode(
+        x=alt.X("mes_nome:O", sort=MESES), y=alt.Y("media:O", sort="descending"),
+        text=alt.Text("meses:Q", format=".0f"),
+        color=alt.condition("datum.escuro", alt.value("white"), alt.value(COR_TEXTO)))
+    figura((celulas + texto).properties(height=alt.Step(34), title=alt.Title(
+               t(f"{NOMES[especie_mapa]}: meses até {peso_comercial[especie_mapa]} g",
+                 f"{NOMES[especie_mapa]}: months to {peso_comercial[especie_mapa]} g"))),
+           t("Meses até ao tamanho comercial consoante o mês de entrada e a temperatura média do mar. Cálculo para um "
+             "peixe médio, sem variação individual nem mortalidade, por isso pode diferir uns dias dos cartões.",
+             "Months to market size depending on the stocking month and mean sea temperature. Computed for an "
+             "average fish, without individual variation or mortality, so it may differ by a few days from the cards."))
+
+
+# ---------------------------------------------------------------------------
+# 11. Tabela com os dados simulados (para descarregar)
 # ---------------------------------------------------------------------------
 with aba_dados:
     st.markdown(t("Valores diários da simulação, até ao fim do gráfico. **Dados simulados.**",
@@ -816,7 +1055,8 @@ with aba_dados:
     tabela["data"] = tabela["data"].dt.date     # só a data, sem 00:00:00
     if idioma == "en":
         # Em inglês, a tabela e o CSV também ficam com nomes em inglês
-        tabela = tabela.replace({"especie": {"dourada": "sea_bream", "robalo": "sea_bass"}}).rename(columns={
+        tabela = tabela.replace({"especie": {"dourada": "sea_bream", "robalo": "sea_bass",
+                                             "pregado": "turbot", "linguado": "sole"}}).rename(columns={
             "especie": "species", "dia": "day", "data": "date", "temperatura_c": "temperature_c",
             "n_peixes": "n_fish", "peso_medio_g": "mean_weight_g", "peso_dp_g": "weight_sd_g",
             "biomassa_kg": "biomass_kg", "racao_kg": "feed_kg", "mortos": "deaths"})
@@ -827,88 +1067,92 @@ with aba_dados:
 
 
 # ---------------------------------------------------------------------------
-# 10. Modelo e referências (sempre à vista, no fim da página)
+# 12. Notas sobre o modelo (fechadas por defeito, no fim da página)
 # ---------------------------------------------------------------------------
 SOBRE_PT = r"""
-O crescimento depende da temperatura acumulada acima de 12 °C (temperatura efetiva): abaixo de 12 °C
-a dourada não cresce (Mayer et al., 2008). Em cada dia, com $T$ a temperatura da água e $W$ o peso (g):
+**Modelo de crescimento.** O peixe cresce em função da temperatura acumulada acima de uma temperatura base
+(coeficiente de crescimento térmico, TGC). Em cada dia, com $T$ a temperatura da água e $W$ o peso (g):
 
-$$W^{1/3} \leftarrow W^{1/3} + TGC_{1/3}\,(T-12) \quad \text{até ao peso crítico}$$
+$$W^{1/3} \leftarrow W^{1/3} + TGC_{1/3}\,(T-T_{base}) \quad \text{até ao peso crítico}$$
 
-$$W^{2/3} \leftarrow W^{2/3} + TGC_{2/3}\,(T-12) \quad \text{a partir do peso crítico}$$
+$$W^{2/3} \leftarrow W^{2/3} + TGC_{2/3}\,(T-T_{base}) \quad \text{a partir do peso crítico (só a dourada)}$$
 
-O peso crítico, $(TGC_{2/3}/TGC_{1/3})^3/8$, é o peso em que as duas fases crescem ao mesmo ritmo
-(cerca de 117 g na dourada). Simulamos 1 000 juvenis, com variação individual no crescimento e
-mortalidade diária; para outro número de juvenis, os totais crescem na mesma proporção.
+Na dourada o peso crítico, $(TGC_{2/3}/TGC_{1/3})^3/8$, é cerca de 117 g. Simulamos 1 000 juvenis, com variação
+individual no crescimento e mortalidade diária; para outro número de juvenis, os totais crescem na mesma proporção.
 
-| | Dourada | Robalo |
-|---|---|---|
-| Crescimento | TGC misto: 0,001646 e 0,016095 (Mayer et al., 2012; 20 lotes em jaulas comerciais) | TGC 0,00129, **calibrado** para demorar mais 13 % do que a dourada, como nos ciclos de 14–16 e 16–18 meses de Cardia & Lovatelli (2007) |
-| Sobrevivência no ciclo | 80 % (Muniesa et al., 2020) | 85 % (Muniesa et al., 2020) |
-| FCR | 2,1 (Kallitsis & Avramidis, 2025) | 2,2 (Kallitsis & Avramidis, 2025) |
-| Ração restrita | 80 %: crescimento × 0,92, FCR × 0,83 (Bonaldo et al., 2010) | 75 %: crescimento × 0,88, FCR igual (Türkmen et al., 2012) |
-| Densidade em tanque / RAS | sem dados | até 70 kg/m³ sem efeito; 100 kg/m³: crescimento × 0,86 (Sammouth et al., 2009) |
-| IMTA | sem dados | FCR × 0,89 (Cotou et al., 2024) |
+| | Crescimento | Sobrevivência | FCR |
+|---|---|---|---|
+| Dourada | TGC misto 0,001646 e 0,016095, base 12 °C (Mayer et al., 2012; 20 lotes em jaulas comerciais) | 80 % (Muniesa et al., 2020) | 2,1 (Kallitsis & Avramidis, 2025) |
+| Robalo | TGC 0,00129, base 12 °C, **calibrado** para demorar mais 13 % do que a dourada (Cardia & Lovatelli, 2007) | 85 % (Muniesa et al., 2020) | 2,2 (Kallitsis & Avramidis, 2025) |
+| Pregado | TGC 0,00105, base 0 °C, **calibrado** com a pré-engorda da FAO (5–10 g a 80–100 g em 4–6 meses, a 16 °C) | 85 % (**pressuposto**) | 1,15 (FAO: 1,1–1,2) |
+| Linguado | TGC 0,000516, base 0 °C, **calibrado** com a FAO (5 g a 350 g em 16–18 meses, a 19–21 °C) | 99 % (Quental-Ferreira et al., 2010, em esteiros) | 2,2 (Valente et al., 2011) |
 
-**Validação:** com o modelo, a dourada vai de 5 g a 400 g em cerca de 17 meses em jaula, perto dos
-≈ 16 meses indicados pela FAO (2009) para juvenis de 5 g.
+**Outros efeitos (só onde há dados):** ração restrita na dourada (Bonaldo et al., 2010) e no robalo (Türkmen et al.,
+2012); densidade em RAS (Sammouth et al., 2009) e IMTA (Cotou et al., 2024) no robalo.
 
-**Pressupostos sem referência:** a variação individual do crescimento (coeficiente de variação de 15 %),
-a curva de temperatura do mar (± 4 °C), a temperatura base de 12 °C no robalo (igual à da dourada) e o
-TGC do robalo (calibrado).
+**Validação:** a dourada vai de 5 g a 400 g em cerca de 17 meses em jaula (FAO, 2009: ≈ 16 meses). O pregado, a 16 °C,
+vai de 10 g a 1 kg em cerca de 15 meses, mais depressa do que os 600–750 dias até 1–1,5 kg indicados para uma
+exploração em Portugal: o TGC foi calibrado com juvenis e o crescimento abranda nos peixes grandes. No linguado,
+Valente et al. (2011) mediram 180 g a 323–354 g em 240 dias a 19 °C, mais devagar do que o modelo prevê.
 
-**Preços:** venda à saída da exploração na Grécia em 2023 (EUMOFA); juvenis e ração na Grécia em 2020
-(HAPO, 2021). O custo total é estimado a partir da ração e dos juvenis, cerca de 70 % do custo de produção
-(HAPO, 2021).
+**Pressupostos sem referência:** a variação individual do crescimento (15 %), a curva de temperatura do mar
+(± 4 °C), a temperatura base do robalo (12 °C), a sobrevivência do pregado, o preço do juvenil de pregado e a
+parte da ração e dos juvenis no custo (70 %) fora da dourada e do robalo.
 
-**Limitações:** os lotes de Mayer et al. começaram com 6–44 g, por isso abaixo de 6 g o modelo é uma
-extrapolação; o modelo não tem temperatura ótima (a temperatura está limitada a 25 °C; o ótimo do robalo
-é 26 °C, Person-Le Ruyet et al., 2004); a mortalidade e o FCR são constantes ao longo do ciclo; os efeitos
-da ração, da densidade e do IMTA vêm de ensaios curtos.
+**Preços:** venda em 2023 (EUMOFA: dourada e robalo na Grécia, pregado em Portugal); linguado no mercado de Madrid
+em 2013 (Morais et al., 2016); juvenis e ração na Grécia em 2020 (HAPO, 2021); juvenil de linguado a partir de
+Bjørndal & Guillen (2014).
+
+**Limitações:** os parâmetros do pregado e do linguado são os menos seguros e não entram nos notebooks; abaixo de
+6 g o modelo da dourada é uma extrapolação; o modelo não tem temperatura ótima, por isso cada espécie tem um
+limite (25 °C; pregado 23 °C); a mortalidade e o FCR são constantes ao longo do ciclo.
 """
 
 SOBRE_EN = r"""
-Growth depends on the temperature accumulated above 12 °C (effective temperature): below 12 °C sea
-bream does not grow (Mayer et al., 2008). Each day, with $T$ the water temperature and $W$ the weight (g):
+**Growth model.** Fish grow with the temperature accumulated above a base temperature (thermal growth
+coefficient, TGC). Each day, with $T$ the water temperature and $W$ the weight (g):
 
-$$W^{1/3} \leftarrow W^{1/3} + TGC_{1/3}\,(T-12) \quad \text{up to the critical weight}$$
+$$W^{1/3} \leftarrow W^{1/3} + TGC_{1/3}\,(T-T_{base}) \quad \text{up to the critical weight}$$
 
-$$W^{2/3} \leftarrow W^{2/3} + TGC_{2/3}\,(T-12) \quad \text{from the critical weight on}$$
+$$W^{2/3} \leftarrow W^{2/3} + TGC_{2/3}\,(T-T_{base}) \quad \text{from the critical weight on (sea bream only)}$$
 
-The critical weight, $(TGC_{2/3}/TGC_{1/3})^3/8$, is the weight at which both stages grow at the same rate
-(about 117 g in sea bream). 1,000 juveniles are simulated, with individual variation in growth and daily
-mortality; for a different number of juveniles, totals scale in the same proportion.
+In sea bream the critical weight, $(TGC_{2/3}/TGC_{1/3})^3/8$, is about 117 g. 1,000 juveniles are simulated, with
+individual variation in growth and daily mortality; for a different number of juveniles, totals scale in proportion.
 
-| | Sea bream | Sea bass |
-|---|---|---|
-| Growth | Mixed TGC: 0.001646 and 0.016095 (Mayer et al., 2012; 20 commercial cage lots) | TGC 0.00129, **calibrated** to take 13 % longer than sea bream, as in the 14–16 and 16–18 month cycles of Cardia & Lovatelli (2007) |
-| Survival over the cycle | 80 % (Muniesa et al., 2020) | 85 % (Muniesa et al., 2020) |
-| FCR | 2.1 (Kallitsis & Avramidis, 2025) | 2.2 (Kallitsis & Avramidis, 2025) |
-| Restricted feeding | 80 %: growth × 0.92, FCR × 0.83 (Bonaldo et al., 2010) | 75 %: growth × 0.88, same FCR (Türkmen et al., 2012) |
-| Density in tank / RAS | no data | no effect up to 70 kg/m³; 100 kg/m³: growth × 0.86 (Sammouth et al., 2009) |
-| IMTA | no data | FCR × 0.89 (Cotou et al., 2024) |
+| | Growth | Survival | FCR |
+|---|---|---|---|
+| Sea bream | Mixed TGC 0.001646 and 0.016095, base 12 °C (Mayer et al., 2012; 20 commercial cage lots) | 80 % (Muniesa et al., 2020) | 2.1 (Kallitsis & Avramidis, 2025) |
+| Sea bass | TGC 0.00129, base 12 °C, **calibrated** to take 13 % longer than sea bream (Cardia & Lovatelli, 2007) | 85 % (Muniesa et al., 2020) | 2.2 (Kallitsis & Avramidis, 2025) |
+| Turbot | TGC 0.00105, base 0 °C, **calibrated** on FAO pre-growing (5–10 g to 80–100 g in 4–6 months, at 16 °C) | 85 % (**assumption**) | 1.15 (FAO: 1.1–1.2) |
+| Sole | TGC 0.000516, base 0 °C, **calibrated** on FAO (5 g to 350 g in 16–18 months, at 19–21 °C) | 99 % (Quental-Ferreira et al., 2010, in ponds) | 2.2 (Valente et al., 2011) |
 
-**Validation:** with the model, sea bream grows from 5 g to 400 g in about 17 months in sea cages, close
-to the ≈ 16 months given by FAO (2009) for 5 g juveniles.
+**Other effects (only where data exist):** restricted feeding in sea bream (Bonaldo et al., 2010) and sea bass
+(Türkmen et al., 2012); RAS density (Sammouth et al., 2009) and IMTA (Cotou et al., 2024) in sea bass.
 
-**Assumptions without a reference:** individual growth variation (coefficient of variation of 15 %), the
-sea temperature curve (± 4 °C), the 12 °C base temperature for sea bass (same as sea bream) and the sea
-bass TGC (calibrated).
+**Validation:** sea bream grows from 5 g to 400 g in about 17 months in sea cages (FAO, 2009: ≈ 16 months). Turbot, at
+16 °C, grows from 10 g to 1 kg in about 15 months, faster than the 600–750 days to 1–1.5 kg reported for a farm in
+Portugal: the TGC was calibrated on juveniles and growth slows in large fish. In sole, Valente et al. (2011)
+measured 180 g to 323–354 g in 240 days at 19 °C, slower than the model predicts.
 
-**Prices:** ex-farm sale price in Greece in 2023 (EUMOFA); juveniles and feed in Greece in 2020 (HAPO, 2021).
-Total cost is estimated from feed and juveniles, about 70 % of production cost (HAPO, 2021).
+**Assumptions without a reference:** individual growth variation (15 %), the sea temperature curve (± 4 °C), the
+sea bass base temperature (12 °C), turbot survival, the turbot juvenile price and the feed-and-juvenile share of
+cost (70 %) outside sea bream and sea bass.
 
-**Limitations:** the lots in Mayer et al. started at 6–44 g, so below 6 g the model is an extrapolation;
-the model has no optimum temperature (temperature is capped at 25 °C; the sea bass optimum is 26 °C,
-Person-Le Ruyet et al., 2004); mortality and FCR are constant over the cycle; the effects of feeding,
-density and IMTA come from short trials.
+**Prices:** 2023 sale prices (EUMOFA: sea bream and sea bass in Greece, turbot in Portugal); sole at the Madrid
+market in 2013 (Morais et al., 2016); juveniles and feed in Greece in 2020 (HAPO, 2021); sole juvenile from
+Bjørndal & Guillen (2014).
+
+**Limitations:** turbot and sole parameters are the least certain and are not in the notebooks; below 6 g the sea
+bream model is an extrapolation; the model has no optimum temperature, so each species has a limit (25 °C; turbot
+23 °C); mortality and FCR are constant over the cycle.
 """
 
-st.header(t("Modelo e referências", "Model and references"), anchor="modelo")
-st.markdown(t(SOBRE_PT, SOBRE_EN))
-st.markdown(t("As referências completas, com DOI, e os cinco notebooks de análise estão no repositório.",
-              "Full references with DOIs, and the five analysis notebooks, are in the repository."))
-with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+st.divider()
+with st.expander(t("Notas sobre o modelo: equações, parâmetros, pressupostos e referências",
+                   "Notes on the model: equations, parameters, assumptions and references")):
+    st.markdown(t(SOBRE_PT, SOBRE_EN))
+    st.markdown(t("As referências completas, com DOI, e os cinco notebooks de análise estão no repositório.",
+                  "Full references with DOIs, and the five analysis notebooks, are in the repository."))
     st.link_button(t("Código, notebooks e referências", "Code, notebooks and references"), URL_GITHUB,
                    icon=":material/code:")
-    st.link_button(t("Contactar no LinkedIn", "Contact on LinkedIn"), URL_LINKEDIN, icon=":material/person:")
+st.caption(f"Dinis Costa · [LinkedIn]({URL_LINKEDIN}) · [GitHub]({URL_GITHUB})")

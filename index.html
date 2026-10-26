@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Modelo de crescimento de dourada e robalo</title>
-  <meta name="description" content="Modelo de crescimento de dourada e robalo em aquacultura (dados simulados). Sea bream and sea bass growth model for aquaculture (simulated data)." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230E7490'/><polyline points='18,74 40,52 56,62 82,30' fill='none' stroke='white' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+  <title>Crescimento de peixes em aquacultura</title>
+  <meta name="description" content="Modelo de crescimento de dourada, robalo, pregado e linguado em aquacultura (dados simulados). Growth model for sea bream, sea bass, turbot and sole in aquaculture (simulated data)." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='14' fill='%231F5C66'/><polyline points='18,74 40,52 56,62 82,30' fill='none' stroke='white' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
   <!--
     Site do projeto, publicado no GitHub Pages.
     O stlite corre a app.py (Streamlit) dentro do browser, com Python (Pyodide),
@@ -13,17 +13,17 @@
   -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/browser@1.10.0/build/stlite.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" />
   <style>
     :root {
-      --oceano: #0E7490;
-      --oceano-escuro: #0B5468;
-      --fundo: #F7FAFB;
-      --texto: #0F2A36;
-      --texto-suave: #4A5E67;
-      --anel: #D3E2E8;
+      --oceano: #1F5C66;
+      --oceano-escuro: #1F5C66;
+      --fundo: #F5F0E6;
+      --texto: #22201C;
+      --texto-suave: #5A5248;
+      --anel: #D8CDB8;
     }
-    body { margin: 0; background: var(--fundo); color: var(--texto); font-family: Inter, system-ui, sans-serif; }
+    body { margin: 0; background: var(--fundo); color: var(--texto); font-family: 'IBM Plex Sans', system-ui, sans-serif; }
 
     /* Ecrã de carregamento: fica por cima da app até aparecerem os primeiros resultados */
     .carregar {
@@ -35,12 +35,13 @@
     }
     .carregar.saida { opacity: 0; pointer-events: none; }
     .carregar .conteudo { width: min(46rem, 100%); display: flex; flex-direction: column; gap: 1rem; }
-    .carregar h1 { margin: 0; font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem); font-weight: 700; line-height: 1.15; letter-spacing: -0.015em; text-wrap: balance; }
+    .carregar h1 { margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: clamp(2rem, 1.3rem + 2.4vw, 3rem); font-weight: 600; line-height: 1.1; letter-spacing: -0.01em; text-wrap: balance; padding-bottom: 0.6rem; border-bottom: 3px double var(--texto-suave); }
     .carregar p { margin: 0; max-width: 68ch; line-height: 1.55; }
     .carregar .lead { font-size: 1.05rem; }
     .carregar figure { margin: 0.5rem 0 0; }
-    .carregar img { display: block; width: 100%; height: auto; border-radius: 0.6rem; border: 1px solid var(--anel); background: white; }
+    .carregar img { display: block; width: 100%; height: auto; border-radius: 2px; border: 1px solid var(--anel); background: white; }
     .carregar figcaption { margin-top: 0.4rem; font-size: 0.85rem; color: var(--texto-suave); }
+    .carregar figcaption em { font-family: 'Source Serif 4', Georgia, serif; }
     .carregar .estado { color: var(--texto-suave); font-size: 0.95rem; }
     .carregar .autor { font-size: 0.95rem; }
     .carregar a { color: var(--oceano-escuro); text-underline-offset: 0.15em; }
@@ -60,14 +61,14 @@
 <body>
   <div id="carregar" class="carregar" role="status" aria-live="polite">
     <div class="conteudo">
-      <h1 id="titulo">Modelo de crescimento de dourada e robalo</h1>
-      <p class="lead" id="lead">Quanto tempo demoram a dourada e o robalo a chegar ao tamanho comercial, e quanta ração gastam pelo caminho? Simulação do ciclo de engorda com parâmetros publicados, em jaula no mar ou em tanque / RAS.</p>
+      <h1 id="titulo">Crescimento de peixes em aquacultura</h1>
+      <p class="lead" id="lead">Quanto tempo demoram a dourada, o robalo, o pregado e o linguado a chegar ao tamanho comercial, quanta ração gastam e quanto custa produzi-los? Simulação do ciclo de engorda com parâmetros publicados, em jaula no mar ou em tanque / RAS.</p>
       <div class="barra" id="barra" role="progressbar" aria-label="A carregar o modelo"></div>
       <p class="estado" id="estado">A carregar o modelo, que corre em Python no próprio browser. Na primeira visita demora 30 a 60 segundos; as seguintes são mais rápidas.</p>
       <figure>
         <img src="figures/01_crescimento_simulado.png" width="1500" height="750" id="figura"
              alt="Curvas de crescimento simulado da dourada e do robalo, de 3 g até mais de 400 g, entre abril de 2024 e janeiro de 2026." />
-        <figcaption id="legenda">Pré-visualização estática (notebook 01, dados simulados). A versão interativa abre aqui quando o modelo terminar de carregar.</figcaption>
+        <figcaption id="legenda"><em>Fig. 0.</em> Pré-visualização estática (notebook 01, dados simulados). A versão interativa abre aqui quando o modelo terminar de carregar.</figcaption>
       </figure>
       <p class="autor" id="autor"><strong>Dinis Costa</strong> · Mestrado em Biologia Marinha Aplicada ·
         <a href="https://www.linkedin.com/in/dinis-costa-a58a67380" target="_blank" rel="noopener">LinkedIn</a> ·
@@ -82,10 +83,10 @@
       || (navigator.language.startsWith("pt") ? "pt" : "en");
     if (lang === "en") {
       const textos = {
-        titulo: "Sea bream and sea bass growth model",
-        lead: "How long do sea bream and sea bass take to reach market size, and how much feed do they use along the way? A grow-out simulation built on published parameters, for sea cages or tanks / RAS.",
+        titulo: "Fish growth in aquaculture",
+        lead: "How long do sea bream, sea bass, turbot and sole take to reach market size, how much feed do they use and what does it cost to produce them? A grow-out simulation built on published parameters, for sea cages or tanks / RAS.",
         estado: "Loading the model, which runs in Python inside the browser. The first visit takes 30 to 60 seconds; later visits are faster.",
-        legenda: "Static preview (notebook 01, simulated data; labels in Portuguese). The interactive version opens here once the model has loaded.",
+        legenda: "<em>Fig. 0.</em> Static preview (notebook 01, simulated data; labels in Portuguese). The interactive version opens here once the model has loaded.",
         autor: '<strong>Dinis Costa</strong> · MSc in Applied Marine Biology · '
           + '<a href="https://www.linkedin.com/in/dinis-costa-a58a67380" target="_blank" rel="noopener">LinkedIn</a> · '
           + '<a href="https://github.com/dinistcosta/aquaculture-growth-model" target="_blank" rel="noopener">Code and notebooks on GitHub</a>',
@@ -116,9 +117,10 @@
   <script type="module">
     import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@1.10.0/build/stlite.js";
 
-    // Só o nome da letra: a Inter já vem do Google Fonts (<link> acima). Com um URL
-    // no tema ("Inter:https://..."), o stlite 1.10.0 dá erro e a página fica em branco.
-    const fonte = "Inter, sans-serif";
+    // Só o nome da letra: as letras já vêm do Google Fonts (<link> acima). Com um URL
+    // no tema ("Nome:https://..."), o stlite 1.10.0 dá erro e a página fica em branco.
+    const fonte = "IBM Plex Sans, sans-serif";
+    const fonteTitulos = "Source Serif 4, Georgia, serif";
     mount(
       {
         requirements: ["numpy", "pandas", "altair"],
@@ -129,19 +131,19 @@
           "src/growth.py": { url: "./src/growth.py" },
           "src/regimes.py": { url: "./src/regimes.py" },
         },
-        // Mesmo tema que .streamlit/config.toml (cores do mar)
+        // Mesmo tema que .streamlit/config.toml (caderno científico: tinta sobre papel creme)
         streamlitConfig: {
           "client.toolbarMode": "viewer",
           "theme.base": "light",
-          "theme.primaryColor": "#0E7490",
-          "theme.backgroundColor": "#F7FAFB",
-          "theme.secondaryBackgroundColor": "#E8F1F4",
-          "theme.textColor": "#0F2A36",
-          "theme.borderColor": "#D3E2E8",
+          "theme.primaryColor": "#1F5C66",
+          "theme.backgroundColor": "#F5F0E6",
+          "theme.secondaryBackgroundColor": "#EBE3D3",
+          "theme.textColor": "#22201C",
+          "theme.borderColor": "#D8CDB8",
           "theme.showWidgetBorder": true,
-          "theme.baseRadius": "0.6rem",
+          "theme.baseRadius": "0.25rem",
           "theme.font": fonte,
-          "theme.headingFont": fonte,
+          "theme.headingFont": fonteTitulos,
         },
       },
       document.getElementById("root"),

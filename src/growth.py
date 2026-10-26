@@ -52,6 +52,8 @@ PARAMETROS = {
         "tgc_2_3": 0.016095,
         # Temperatura mínima para a dourada comer e crescer (Mayer et al., 2008).
         "temperatura_base": 12.0,
+        # Acima disto o modelo não é usado (ver TEMPERATURA_MAXIMA_VALIDA).
+        "temperatura_maxima": 25.0,
         # Sobrevivência num ciclo de engorda: 80 %.
         # Muniesa, A. et al. (2020). Mapping the knowledge of the main diseases
         # affecting sea bass and sea bream in Mediterranean.
@@ -82,11 +84,60 @@ PARAMETROS = {
         # PRESSUPOSTO: a mesma temperatura base da dourada (sem valor publicado
         # encontrado para o robalo em engorda).
         "temperatura_base": 12.0,
+        "temperatura_maxima": 25.0,
         # Sobrevivência num ciclo de engorda: 85 % (Muniesa et al., 2020).
         "sobrevivencia_ciclo": 0.85,
         # Duração de referência: 16–18 meses (usamos 17) (Cardia & Lovatelli, 2007).
         "duracao_ciclo_dias": 517,
         # FCR médio em explorações gregas: 2,2 (Kallitsis & Avramidis, 2025).
+        "fcr": 2.2,
+    },
+    # Pregado e linguado: peixes chatos criados sobretudo em tanques em terra.
+    # Não encontrámos um TGC medido em explorações comerciais destas espécies, por
+    # isso usamos o TGC clássico (só a fase W^(1/3), temperatura base 0 °C;
+    # Cho, C.Y., 1992. Feeding systems for rainbow trout and other salmonids with
+    # reference to current estimates of energy and protein requirements.
+    # Aquaculture 100: 107–123) com valores CALIBRADOS a partir das durações de
+    # cultivo indicadas nas fichas da FAO. São os parâmetros menos seguros do projeto.
+    "pregado": {
+        "nome_cientifico": "Scophthalmus maximus",
+        # CALIBRAÇÃO: na pré-engorda o pregado passa de 5–10 g a 80–100 g em 4–6 meses
+        # (FAO, Cultured Aquatic Species Information Programme: Psetta maxima).
+        # Com 7,5 g -> 90 g em 150 dias a 16 °C (meio do intervalo ótimo de 14–18 °C):
+        #   TGC = (90^(1/3) - 7,5^(1/3)) / (150 x 16) = 0,00105
+        "tgc_1_3": 0.00105,
+        "tgc_2_3": None,
+        "temperatura_base": 0.0,
+        # Intervalo extremo de cultivo 11–23 °C (FAO).
+        "temperatura_maxima": 23.0,
+        # PRESSUPOSTO: não encontrámos a sobrevivência na engorda; usamos a do robalo.
+        "sobrevivencia_ciclo": 0.85,
+        # Numa exploração em Portugal, 10 g -> 1–1,5 kg em 600–750 dias (usamos 675).
+        "duracao_ciclo_dias": 675,
+        # FCR típico 1,1–1,2 (FAO); usamos 1,15.
+        "fcr": 1.15,
+    },
+    "linguado": {
+        "nome_cientifico": "Solea senegalensis",
+        # CALIBRAÇÃO: de 5 g a 350 g (tamanho comercial médio) em 16–18 meses, a
+        # 19–21 °C em tanques (ficha da FAO, resumida em The Fish Site, "How to farm
+        # sole"). Com 517 dias a 20 °C:
+        #   TGC = (350^(1/3) - 5^(1/3)) / (517 x 20) = 0,000516
+        "tgc_1_3": 0.000516,
+        "tgc_2_3": None,
+        "temperatura_base": 0.0,
+        # Cresce mais a 20–25 °C, mas acima de 22 °C aumenta o risco de doenças
+        # (Morais, S. et al., 2016. New developments and biological insights into the
+        # farming of Solea senegalensis reinforcing its aquaculture potential.
+        # Reviews in Aquaculture 8: 227–263. doi:10.1111/raq.12091).
+        "temperatura_maxima": 25.0,
+        # 99 % de sobrevivência de 24 g a 393 g em 16 meses, em esteiros com dourada e
+        # robalo (Quental-Ferreira et al., 2010, citado em Morais et al., 2016).
+        # Um único estudo, provavelmente otimista para tanques intensivos.
+        "sobrevivencia_ciclo": 0.99,
+        "duracao_ciclo_dias": 517,
+        # FCR 2,0–2,4 de 180 g a 323–354 g em 240 dias a 19 °C (Valente et al., 2011,
+        # tabela 1 de Morais et al., 2016); usamos 2,2.
         "fcr": 2.2,
     },
 }
@@ -166,7 +217,8 @@ def crescimento_diario(peso_g, temperatura_c, especie, parametros=None, fator=1.
     """
     p = {**PARAMETROS[especie], **(parametros or {})}
     peso = np.asarray(peso_g, dtype=float)
-    efetiva = max(temperatura_c - p["temperatura_base"], 0.0) * fator
+    temperatura = min(temperatura_c, p["temperatura_maxima"])   # o modelo não é válido acima
+    efetiva = max(temperatura - p["temperatura_base"], 0.0) * fator
     fase_1 = peso < peso_critico(p)
     novo = np.where(fase_1,
                     (np.cbrt(peso) + p["tgc_1_3"] * efetiva) ** 3,
@@ -190,7 +242,8 @@ def perfil_temperatura(n_dias, data_inicio="2024-04-01", media=19.0, amplitude=4
 
 def simular_ciclo(especie, n_dias=640, n_peixes=5000, temperatura=None,
                   data_inicio="2024-04-01", peso_inicial_g=PESO_INICIAL_G,
-                  fator_crescimento=1.0, fcr=None, parametros=None, semente=42):
+                  fator_crescimento=1.0, fcr=None, parametros=None, semente=42,
+                  guardar_pesos_cada=None):
     """Simula, dia a dia, um ciclo de engorda numa jaula.
 
     Devolve uma tabela (DataFrame) com uma linha por dia:
@@ -204,6 +257,9 @@ def simular_ciclo(especie, n_dias=640, n_peixes=5000, temperatura=None,
     - fcr: índice de conversão alimentar (se None, usa o valor da espécie).
     - parametros: valores que substituem os de PARAMETROS[especie] (ex.: TGC
       ou sobrevivência de uma exploração).
+    - guardar_pesos_cada: se for um número de dias, guarda o peso de cada peixe vivo
+      nesses dias em tabela.attrs["pesos"] (dicionário dia -> array), para ver a
+      distribuição de tamanhos.
     """
     p = {**PARAMETROS[especie], **(parametros or {})}
     gerador = np.random.default_rng(semente)
@@ -230,6 +286,7 @@ def simular_ciclo(especie, n_dias=640, n_peixes=5000, temperatura=None,
     p_morte_dia = 1 - p["sobrevivencia_ciclo"] ** (1 / p["duracao_ciclo_dias"])
 
     linhas = []
+    pesos_guardados = {}
     for dia in range(n_dias):
         # 1) Mortalidade do dia
         morre = vivo & (gerador.random(n_peixes) < p_morte_dia)
@@ -257,9 +314,40 @@ def simular_ciclo(especie, n_dias=640, n_peixes=5000, temperatura=None,
             "mortos": int(morre.sum()),
         })
 
+        if guardar_pesos_cada and dia % guardar_pesos_cada == 0:
+            pesos_guardados[dia] = pesos[vivo].astype(np.float32)
+
     tabela = pd.DataFrame(linhas)
     tabela.insert(0, "especie", especie)
+    if guardar_pesos_cada:
+        tabela.attrs["pesos"] = pesos_guardados
     return tabela
+
+
+def dias_ate_peso_medio(especie, temperaturas, peso_inicial_g, peso_alvo_g, parametros=None, fator=1.0):
+    """Dias até um peixe "médio" chegar ao peso-alvo, para vários cenários de uma vez.
+
+    Versão rápida, sem variação individual nem mortalidade: serve para comparar
+    muitos cenários (ex.: mês de entrada x temperatura média).
+    temperaturas: array com uma linha por cenário e uma coluna por dia.
+    Devolve um array com os dias de cada cenário (NaN se não chegar ao peso-alvo).
+    """
+    p = {**PARAMETROS[especie], **(parametros or {})}
+    temperaturas = np.asarray(temperaturas, dtype=float)
+    pesos = np.full(temperaturas.shape[0], float(peso_inicial_g))
+    dias = np.full(temperaturas.shape[0], np.nan)
+    critico = peso_critico(p)
+    for dia in range(temperaturas.shape[1]):
+        t = np.minimum(temperaturas[:, dia], p["temperatura_maxima"])
+        efetiva = np.maximum(t - p["temperatura_base"], 0.0) * fator
+        pesos = np.where(pesos < critico,
+                         (np.cbrt(pesos) + p["tgc_1_3"] * efetiva) ** 3,
+                         (pesos ** (2 / 3) + (p["tgc_2_3"] or 0.0) * efetiva) ** 1.5)
+        chegou = np.isnan(dias) & (pesos >= peso_alvo_g)
+        dias[chegou] = dia + 1
+        if not np.isnan(dias).any():
+            break
+    return dias
 
 
 def registos_de_exploracao(simulacao, intervalo_dias=14, n_amostra=50, semente=1):
