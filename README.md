@@ -2,6 +2,8 @@
 
 Modelação do crescimento da **dourada** (*Sparus aurata*) e do **robalo** (*Dicentrarchus labrax*) em aquacultura, e simulação do efeito da **temperatura**, da **alimentação** e do **regime de cultivo** no tempo até ao tamanho comercial e na eficiência alimentar.
 
+🌐 **App interativa:** [dinistcosta.github.io/aquaculture-growth-model](https://dinistcosta.github.io/aquaculture-growth-model/). Escolhe a espécie, a temperatura e a alimentação e vê a curva de crescimento e os dias até ao tamanho comercial.
+
 > ⚠️ **Os dados deste projeto são SIMULADOS.** Foram gerados a partir de parâmetros publicados na literatura científica (referências abaixo), com variação aleatória para se parecerem com dados reais. Não são registos de nenhuma exploração. O código está preparado para ser usado com dados reais (ver [Usar dados reais](#usar-dados-reais)).
 
 ## Objetivo
@@ -144,6 +146,14 @@ pip install -r requirements.txt
 
 Depois abrir os notebooks da pasta `notebooks/` por ordem, no VS Code ou no Jupyter (`pip install notebook` e `jupyter notebook`). O notebook 01 gera o ficheiro `data/raw/registos_simulados.csv`, usado pelos seguintes.
 
+### App interativa
+
+```bash
+streamlit run app.py
+```
+
+A mesma app está publicada no [site do projeto](https://dinistcosta.github.io/aquaculture-growth-model/). O ficheiro `index.html` usa o [stlite](https://github.com/whitphx/stlite) para correr a `app.py` em Python **dentro do browser** (Pyodide), sem servidor. Por isso pode ser alojada no GitHub Pages; a primeira abertura demora alguns segundos.
+
 ### Usar dados reais
 
 Basta um CSV com uma linha por biometria e as colunas:
@@ -164,13 +174,15 @@ aquaculture-growth-model/
 ├── notebooks/          análises 01 a 05
 ├── src/                funções reutilizáveis
 ├── figures/            gráficos exportados
+├── app.py              app interativa (Streamlit)
+├── index.html          site do projeto (corre a app.py no browser)
 ├── requirements.txt
 └── README.md
 ```
 
 ## Ferramentas
 
-Python · NumPy · pandas · Matplotlib · seaborn · SciPy · Jupyter
+Python · NumPy · pandas · Matplotlib · seaborn · SciPy · Jupyter · Streamlit · stlite (GitHub Pages)
 
 ## Referências
 
