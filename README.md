@@ -2,7 +2,7 @@
 
 Modelação do crescimento da **dourada** (*Sparus aurata*) e do **robalo** (*Dicentrarchus labrax*) em aquacultura, e simulação do efeito da **temperatura**, da **alimentação** e do **regime de cultivo** no tempo até ao tamanho comercial e na eficiência alimentar.
 
-🌐 **App interativa:** [dinistcosta.github.io/aquaculture-growth-model](https://dinistcosta.github.io/aquaculture-growth-model/). Escolhe a espécie, a temperatura e a alimentação e vê a curva de crescimento e os dias até ao tamanho comercial.
+🌐 **App interativa:** [dinistcosta.github.io/aquaculture-growth-model](https://dinistcosta.github.io/aquaculture-growth-model/). Escolhe a espécie, o sistema de cultivo (jaula, tanque / RAS, IMTA) e a alimentação e vê a curva de crescimento e os dias até ao tamanho comercial. Também podes pôr os dados do teu cultivo (número e peso dos juvenis, data de entrada, temperaturas e pesagens em CSV) e comparar as tuas pesagens com o modelo.
 
 > ⚠️ **Os dados deste projeto são SIMULADOS.** Foram gerados a partir de parâmetros publicados na literatura científica (referências abaixo), com variação aleatória para se parecerem com dados reais. Não são registos de nenhuma exploração. O código está preparado para ser usado com dados reais (ver [Usar dados reais](#usar-dados-reais)).
 

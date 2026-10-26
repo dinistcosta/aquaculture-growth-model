@@ -6,23 +6,34 @@ Também corre no browser, sem instalar nada, através do site do projeto
 (index.html, publicado no GitHub Pages com o stlite).
 
 ATENÇÃO: os resultados são SIMULADOS com o modelo de src/growth.py.
+Quem usa a app pode pôr os dados do seu cultivo (número e peso dos juvenis,
+data de entrada, temperaturas e pesagens) para comparar com o modelo.
 """
+
+import datetime
 
 import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
 
-from src.growth import (PARAMETROS, CENARIOS_ALIMENTACAO, TEMPERATURA_MAXIMA_VALIDA,
+from src.growth import (PARAMETROS, CENARIOS_ALIMENTACAO, TEMPERATURA_MAXIMA_VALIDA, PESO_INICIAL_G,
                         perfil_temperatura, simular_ciclo, dias_ate_peso)
+from src.regimes import (TEMPERATURA_TANQUE, DENSIDADE_SEM_EFEITO, DENSIDADE_MAXIMA,
+                         fator_crescimento_densidade, FATOR_FCR_IMTA)
 
 N_DIAS = 1400      # chega para todos os cenários possíveis com os controlos
-N_PEIXES = 1000    # menos peixes do que nos notebooks, para a app ser rápida
+N_PEIXES = 1000    # peixes simulados; os resultados são depois escalados ao nº de juvenis
 CORES = {"dourada": "#C9971C", "robalo": "#2F6690"}
 NOMES = {"dourada": "Dourada", "robalo": "Robalo"}
 CIENTIFICOS = {"dourada": "Sparus aurata", "robalo": "Dicentrarchus labrax"}
 COR_TEMPERATURA = "#0E7490"
+COR_PESAGENS = "#0F2A36"
 URL_GITHUB = "https://github.com/dinistcosta/aquaculture-growth-model"
+
+# Ficheiros de exemplo que a pessoa pode descarregar e preencher
+MODELO_TEMPERATURAS = "data,temperatura_c\n2024-04-01,16.5\n2024-04-08,17.0\n2024-04-15,17.2\n"
+MODELO_PESAGENS = "data,peso_medio_g\n2024-05-01,9.8\n2024-06-01,24.5\n2024-07-01,48.0\n"
 
 st.set_page_config(page_title="Crescimento de dourada e robalo", page_icon="🐟", layout="wide")
 
@@ -36,9 +47,56 @@ def virgula(numero, casas=1):
     return f"{numero:.{casas}f}".replace(".", ",")
 
 
+def milhares(numero):
+    """Escreve um número inteiro com espaço nos milhares (ex.: 25 000)."""
+    return f"{numero:,.0f}".replace(",", " ")
+
+
 def mes_e_ano(data):
     """Escreve uma data como mês e ano em português (ex.: out. 2025)."""
     return f"{MESES[data.month - 1]} {data.year}"
+
+
+def ler_csv(ficheiro, coluna):
+    """Lê um CSV com as colunas 'data' e `coluna` (aceita ; ou , e vírgula decimal).
+
+    Devolve uma tabela com as colunas data e valor, ordenada por data.
+    """
+    tabela = pd.read_csv(ficheiro, sep=None, engine="python", dtype=str)
+    tabela.columns = tabela.columns.str.strip().str.lower()
+    if "data" not in tabela.columns or coluna not in tabela.columns:
+        raise ValueError(f"O ficheiro tem de ter as colunas 'data' e '{coluna}'.")
+    # Datas no formato 2024-04-01 ou 01/04/2024 (dia primeiro, como em Portugal)
+    data = pd.to_datetime(tabela["data"], format="ISO8601", errors="coerce")
+    data = data.fillna(pd.to_datetime(tabela["data"], format="%d/%m/%Y", errors="coerce"))
+    tabela = pd.DataFrame({
+        "data": data,
+        "valor": pd.to_numeric(tabela[coluna].str.replace(",", "."), errors="coerce"),
+    }).dropna()
+    if tabela.empty:
+        raise ValueError("Não encontrei linhas com data e valor válidos.")
+    return tabela.sort_values("data")
+
+
+def temperatura_dos_dados(tabela, datas, reserva):
+    """Temperatura diária do ciclo a partir das medições da pessoa.
+
+    1) As medições são interpoladas para ter um valor por dia.
+    2) Dias do ciclo sem medição: média do mesmo dia do ano nas medições.
+    3) Se ainda faltar algum dia, usa a curva `reserva` (curva sazonal).
+    Devolve a temperatura e o número de dias do ciclo cobertos pelas medições.
+    """
+    diaria = tabela.groupby("data")["valor"].mean().resample("D").mean().interpolate()
+    temperatura = diaria.reindex(datas).to_numpy(dtype=float, copy=True)
+    dias_medidos = int((~np.isnan(temperatura)).sum())
+
+    media_dia_do_ano = diaria.groupby(diaria.index.day_of_year).mean()
+    falta = np.isnan(temperatura)
+    temperatura[falta] = datas.day_of_year[falta].map(media_dia_do_ano).to_numpy(dtype=float)
+
+    falta = np.isnan(temperatura)
+    temperatura[falta] = reserva[falta]
+    return temperatura, dias_medidos
 
 
 # ---------------------------------------------------------------------------
@@ -51,17 +109,30 @@ with st.sidebar:
                                    default="Ambas", required=True)
     especies = {"Dourada": ["dourada"], "Robalo": ["robalo"], "Ambas": ["dourada", "robalo"]}[escolha]
 
-    tipo_temperatura = st.segmented_control(
-        "Temperatura da água", ["Constante", "Sazonal"], default="Sazonal", required=True,
-        help="**Constante:** tanque ou RAS com temperatura controlada.  \n"
-             "**Sazonal:** jaula no mar; a temperatura varia ± 4 °C ao longo do ano "
-             "(mínimo em fevereiro, máximo em agosto). Entrada dos peixes a 1 de abril.")
-    if tipo_temperatura == "Constante":
-        temperatura_c = st.slider("Temperatura (°C)", 14.0, TEMPERATURA_MAXIMA_VALIDA, 20.0, 0.5)
-        temperatura = np.full(N_DIAS, temperatura_c)
+    sistema = st.segmented_control(
+        "Sistema de cultivo", ["Jaula no mar", "Tanque / RAS"], default="Jaula no mar", required=True,
+        help="**Jaula no mar:** a temperatura é a do mar e varia ± 4 °C ao longo do ano "
+             "(mínimo em fevereiro, máximo em agosto).  \n"
+             "**Tanque / RAS:** tanque em terra com temperatura controlada (constante).")
+    densidade = None
+    imta = False
+    if sistema == "Jaula no mar":
+        media = st.slider("Temperatura média anual do mar (°C)", 15.0, 21.0, 19.0, 0.5)
+        if "robalo" in especies:
+            imta = st.toggle(
+                "IMTA (robalo)",
+                help="Robalo cultivado com mexilhões, ostras e pepinos-do-mar: FCR × "
+                     f"{virgula(FATOR_FCR_IMTA, 2)}, crescimento igual (Cotou et al., 2024; ensaio piloto de 90 dias).")
     else:
-        media = st.slider("Temperatura média anual (°C)", 15.0, 21.0, 19.0, 0.5)
-        _, temperatura = perfil_temperatura(N_DIAS, media=media)
+        temperatura_tanque = st.slider(
+            "Temperatura do tanque (°C)", 14.0, TEMPERATURA_MAXIMA_VALIDA, TEMPERATURA_TANQUE, 0.5,
+            help=f"{virgula(TEMPERATURA_TANQUE, 0)} °C é o meio do intervalo 18–26 °C indicado pela FAO (2009). "
+                 f"O modelo não é válido acima de {virgula(TEMPERATURA_MAXIMA_VALIDA, 0)} °C.")
+        densidade = st.slider(
+            "Densidade (kg/m³)", 10, DENSIDADE_MAXIMA, 40, 5,
+            help=f"No robalo, até {DENSIDADE_SEM_EFEITO} kg/m³ não há efeito no crescimento; "
+                 f"a {DENSIDADE_MAXIMA} kg/m³ a SGR desce 14 % (Sammouth et al., 2009). "
+                 "Na dourada não encontrámos dados, por isso a densidade só serve para calcular o volume de tanque.")
 
     alimentacao = st.segmented_control(
         "Alimentação", ["saciedade", "restrita"], default="saciedade", required=True,
@@ -71,39 +142,116 @@ with st.sidebar:
 
     peso_comercial = st.slider("Tamanho comercial (g)", 250, 600, 400, 25)
 
+    st.header("O meu cultivo")
+    st.caption("Opcional: põe os dados da tua exploração. Nada sai do teu computador.")
+    n_juvenis = st.number_input("Número de juvenis", 100, 5_000_000, N_PEIXES, 1000)
+    peso_inicial = st.number_input("Peso dos juvenis à entrada (g)", 1.0, 50.0, PESO_INICIAL_G, 0.5,
+                                   help="O modelo foi feito para juvenis de 2–4 g; acima de 50 g não é fiável.")
+    data_entrada = st.date_input("Data de entrada", datetime.date(2024, 4, 1), format="DD/MM/YYYY")
+
+    with st.expander("Carregar as minhas medições (CSV)"):
+        st.markdown("Um ficheiro por tipo de medição, com uma linha por medição. "
+                    "Pode ser exportado do Excel (separador `;` ou `,`).")
+        ficheiro_temp = st.file_uploader("Temperaturas da água", type="csv",
+                                         help="Colunas: data, temperatura_c. Substituem a temperatura acima.")
+        st.download_button("Exemplo de temperaturas", MODELO_TEMPERATURAS, "exemplo_temperaturas.csv",
+                           "text/csv", icon=":material/download:")
+        ficheiro_pesos = st.file_uploader("Pesagens (peso médio da amostra)", type="csv",
+                                          help="Colunas: data, peso_medio_g. Aparecem no gráfico do peso.")
+        st.download_button("Exemplo de pesagens", MODELO_PESAGENS, "exemplo_pesagens.csv",
+                           "text/csv", icon=":material/download:")
+
     st.divider()
     st.caption(f"Dados simulados · [Código e notebooks no GitHub]({URL_GITHUB})")
 
 
 # ---------------------------------------------------------------------------
-# 2. Simulação
+# 2. Temperatura e dados carregados
+# ---------------------------------------------------------------------------
+datas, curva_sazonal = perfil_temperatura(N_DIAS, data_inicio=str(data_entrada),
+                                          media=media if sistema == "Jaula no mar" else 19.0)
+if sistema == "Jaula no mar":
+    temperatura = curva_sazonal
+else:
+    temperatura = np.full(N_DIAS, temperatura_tanque)
+
+avisos = []
+if ficheiro_temp is not None:
+    try:
+        temperatura, dias_medidos = temperatura_dos_dados(ler_csv(ficheiro_temp, "temperatura_c"),
+                                                          datas, temperatura)
+        avisos.append(f":material/thermostat: A usar as tuas temperaturas ({dias_medidos} dias do ciclo "
+                      "com medições; os restantes são completados com a média do mesmo dia do ano).")
+        if temperatura.max() > TEMPERATURA_MAXIMA_VALIDA:
+            avisos.append(f":material/warning: Há temperaturas acima de {virgula(TEMPERATURA_MAXIMA_VALIDA, 0)} °C. "
+                          "O modelo não é válido aí, por isso foram limitadas a esse valor.")
+            temperatura = np.minimum(temperatura, TEMPERATURA_MAXIMA_VALIDA)
+    except Exception as erro:
+        st.sidebar.error(f"Não consegui ler as temperaturas: {erro}")
+
+pesagens = None
+if ficheiro_pesos is not None:
+    try:
+        pesagens = ler_csv(ficheiro_pesos, "peso_medio_g")
+        pesagens["dia"] = (pesagens["data"] - pd.Timestamp(data_entrada)).dt.days
+        pesagens = pesagens[(pesagens["dia"] >= 0) & (pesagens["dia"] < N_DIAS)]
+        if pesagens.empty:
+            st.sidebar.error("Nenhuma pesagem é posterior à data de entrada.")
+            pesagens = None
+    except Exception as erro:
+        st.sidebar.error(f"Não consegui ler as pesagens: {erro}")
+
+
+# ---------------------------------------------------------------------------
+# 3. Simulação
 # ---------------------------------------------------------------------------
 @st.cache_data(show_spinner=False)
-def simular(especie, temperatura, alimentacao):
+def simular(especie, temperatura, fator_crescimento, fcr, peso_inicial, data_entrada):
     """Corre a simulação (o resultado fica guardado para não repetir contas)."""
-    cenario = CENARIOS_ALIMENTACAO[especie][alimentacao]
     return simular_ciclo(especie, n_dias=N_DIAS, n_peixes=N_PEIXES, temperatura=temperatura,
-                         fator_crescimento=cenario["fator_crescimento"],
-                         fcr=PARAMETROS[especie]["fcr"] * cenario["fator_fcr"], semente=42)
+                         data_inicio=str(data_entrada), peso_inicial_g=peso_inicial,
+                         fator_crescimento=fator_crescimento, fcr=fcr, semente=42)
+
+
+def simular_especie(especie):
+    """Junta os efeitos do cenário escolhido e escala o resultado ao nº de juvenis."""
+    cenario = CENARIOS_ALIMENTACAO[especie][alimentacao]
+    fator_crescimento = cenario["fator_crescimento"]
+    fcr = PARAMETROS[especie]["fcr"] * cenario["fator_fcr"]
+    if especie == "robalo" and densidade is not None:
+        fator_crescimento *= fator_crescimento_densidade(densidade)
+    if especie == "robalo" and imta:
+        fcr *= FATOR_FCR_IMTA
+    sim = simular(especie, temperatura, fator_crescimento, fcr, peso_inicial, data_entrada)
+
+    # Simulamos 1 000 peixes; para outro número de juvenis, os totais crescem na mesma proporção
+    escala = n_juvenis / N_PEIXES
+    return sim.assign(n_peixes=(sim["n_peixes"] * escala).round().astype(int),
+                      biomassa_kg=sim["biomassa_kg"] * escala,
+                      racao_kg=sim["racao_kg"] * escala,
+                      mortos=(sim["mortos"] * escala).round().astype(int))
 
 
 with st.spinner("A simular..."):
-    simulacoes = {e: simular(e, temperatura, alimentacao) for e in especies}
+    simulacoes = {e: simular_especie(e) for e in especies}
 dias_alvo = {e: dias_ate_peso(s, peso_comercial) for e, s in simulacoes.items()}
 
 
 # ---------------------------------------------------------------------------
-# 3. Cabeçalho
+# 4. Cabeçalho
 # ---------------------------------------------------------------------------
 st.title("🐟 Crescimento de dourada e robalo")
 st.markdown("Quanto tempo demora um peixe de aquacultura a chegar ao tamanho comercial? "
-            "Muda a **temperatura**, a **alimentação** e a **espécie** na barra lateral.")
+            "Escolhe o **sistema de cultivo**, a **alimentação** e a **espécie** na barra lateral, "
+            "ou põe lá os **dados do teu cultivo**.")
 st.caption(":material/science: Resultados **simulados** com parâmetros da literatura científica; "
            "não são dados de nenhuma exploração.")
+for aviso in avisos:
+    st.caption(aviso)
 
 
 # ---------------------------------------------------------------------------
-# 4. Números principais (um cartão por espécie)
+# 5. Números principais (um cartão por espécie)
 # ---------------------------------------------------------------------------
 colunas = st.columns(len(especies), gap="medium")
 for coluna, especie in zip(colunas, especies):
@@ -116,17 +264,14 @@ for coluna, especie in zip(colunas, especies):
             st.error(f"Não chega aos {peso_comercial} g em {N_DIAS} dias.")
             continue
         ate_peso = sim.loc[:dia]
-        ganho_biomassa = ate_peso["biomassa_kg"].iloc[-1] - N_PEIXES * sim.loc[0, "peso_medio_g"] / 1000
+        ganho_biomassa = ate_peso["biomassa_kg"].iloc[-1] - n_juvenis * peso_inicial / 1000
         fcr = ate_peso["racao_kg"].sum() / ganho_biomassa
         c1, c2, c3 = st.columns(3)
         c1.metric(f"Até {peso_comercial} g", f"{dia} dias")
-        c1.caption(f"≈ {virgula(dia / 30.4)} meses")
-        if tipo_temperatura == "Sazonal":
-            # Os juvenis entram a 1 de abril de 2024 (ver perfil_temperatura)
-            c1.caption(f"Despesca ≈ {mes_e_ano(sim.loc[dia, 'data'])}")
+        c1.caption(f"≈ {virgula(dia / 30.4)} meses · despesca ≈ {mes_e_ano(sim.loc[dia, 'data'])}")
         c2.metric("FCR económico", virgula(fcr, 2),
                   help="kg de ração por kg de peixe produzido, incluindo a ração comida pelos peixes que morreram.")
-        c3.metric("Sobrevivência", f"{sim.loc[dia, 'n_peixes'] / N_PEIXES:.0%}")
+        c3.metric("Sobrevivência", f"{sim.loc[dia, 'n_peixes'] / n_juvenis:.0%}")
 
 # Frase-resumo quando se comparam as duas espécies
 if len(especies) == 2 and None not in dias_alvo.values():
@@ -140,7 +285,7 @@ if len(especies) == 2 and None not in dias_alvo.values():
 
 
 # ---------------------------------------------------------------------------
-# 5. Gráficos
+# 6. Gráficos
 # ---------------------------------------------------------------------------
 aba_crescimento, aba_biomassa, aba_dados, aba_modelo = st.tabs(
     [":material/show_chart: Crescimento", ":material/scale: Biomassa e ração",
@@ -148,6 +293,8 @@ aba_crescimento, aba_biomassa, aba_dados, aba_modelo = st.tabs(
 
 with aba_crescimento:
     dia_maximo = min(N_DIAS, int(max(d or N_DIAS for d in dias_alvo.values()) * 1.15))
+    if pesagens is not None:
+        dia_maximo = max(dia_maximo, min(N_DIAS, int(pesagens["dia"].max()) + 10))
     escala_x = alt.Scale(domain=[0, dia_maximo], nice=False)
 
     # Tabela "longa" com as duas espécies, um ponto de 2 em 2 dias (gráfico mais leve)
@@ -162,7 +309,8 @@ with aba_crescimento:
                     legend=alt.Legend(orient="top-left", direction="horizontal",
                                       symbolType="stroke", symbolStrokeWidth=3, symbolOpacity=1,
                                       labelFontSize=13))
-    eixo_x = alt.X("dia:Q", scale=escala_x, title="Dias desde a entrada dos juvenis (3 g)")
+    eixo_x = alt.X("dia:Q", scale=escala_x,
+                   title=f"Dias desde a entrada dos juvenis ({virgula(peso_inicial, 1).replace(',0', '')} g)")
 
     faixa = alt.Chart(dados).mark_area(opacity=0.15).encode(
         x=eixo_x, y="minimo:Q", y2="maximo:Q", color=cor)
@@ -171,6 +319,7 @@ with aba_crescimento:
         y=alt.Y("peso_medio_g:Q", title="Peso médio (g)", axis=alt.Axis(format="d")),
         color=cor,
         tooltip=[alt.Tooltip("nome:N", title="Espécie"), alt.Tooltip("dia:Q", title="Dia"),
+                 alt.Tooltip("data:T", title="Data", format="%d/%m/%Y"),
                  alt.Tooltip("peso_medio_g:Q", title="Peso médio (g)", format=".0f"),
                  alt.Tooltip("peso_dp_g:Q", title="Desvio-padrão (g)", format=".0f"),
                  alt.Tooltip("temperatura_c:Q", title="Temperatura (°C)", format=".1f")])
@@ -186,10 +335,34 @@ with aba_crescimento:
         x=alt.X("dia:Q", scale=escala_x), y="peso:Q", color=cor,
         tooltip=[alt.Tooltip("nome:N", title="Espécie"), alt.Tooltip("dia:Q", title="Chega ao tamanho comercial no dia")])
 
-    grafico_peso = (faixa + linha + alvo + alvo_texto + pontos).properties(
-        height=380, title=alt.Title("Peso médio dos peixes",
-                                    subtitle="Linha: média da jaula · sombra: ± 1 desvio-padrão entre peixes"))
+    camadas = faixa + linha + alvo + alvo_texto + pontos
+    subtitulo = "Linha: média da jaula · sombra: ± 1 desvio-padrão entre peixes"
+    if pesagens is not None:
+        # As pesagens da pessoa, como losangos escuros por cima das curvas do modelo
+        camadas += alt.Chart(pesagens).mark_point(shape="diamond", filled=True, size=90,
+                                                  color=COR_PESAGENS, opacity=0.9).encode(
+            x=alt.X("dia:Q", scale=escala_x), y="valor:Q",
+            tooltip=[alt.Tooltip("data:T", title="Pesagem", format="%d/%m/%Y"),
+                     alt.Tooltip("dia:Q", title="Dia"),
+                     alt.Tooltip("valor:Q", title="Peso médio medido (g)", format=".1f")])
+        subtitulo += " · ◆ as tuas pesagens"
+
+    grafico_peso = camadas.properties(
+        height=380, title=alt.Title("Peso médio dos peixes", subtitle=subtitulo))
     st.altair_chart(grafico_peso, width="stretch")
+
+    # Comparação das pesagens com o modelo, no mesmo dia
+    if pesagens is not None:
+        comparacao = pesagens.rename(columns={"valor": "Medido (g)"})
+        comparacao["Data"] = comparacao["data"].dt.strftime("%d/%m/%Y")
+        for e, s in simulacoes.items():
+            comparacao[f"{NOMES[e]}: modelo (g)"] = s.loc[comparacao["dia"], "peso_medio_g"].round(1).to_numpy()
+        st.markdown("**As tuas pesagens vs. o modelo**")
+        st.dataframe(comparacao.drop(columns="data").rename(columns={"dia": "Dia"})
+                     [["Data", "Dia", "Medido (g)"] + [f"{NOMES[e]}: modelo (g)" for e in especies]],
+                     hide_index=True)
+        st.caption("Se as pesagens ficam sistematicamente abaixo (ou acima) da curva, o teu cultivo cresce "
+                   "mais devagar (ou mais depressa) do que os estudos usados no modelo.")
 
     dados_temp = pd.DataFrame({"dia": np.arange(dia_maximo), "temperatura": temperatura[:dia_maximo]})
     grafico_temp = alt.Chart(dados_temp).mark_area(
@@ -207,10 +380,10 @@ with aba_crescimento:
 
 
 # ---------------------------------------------------------------------------
-# 6. Biomassa da jaula e ração gasta (até ao tamanho comercial)
+# 7. Biomassa e ração gasta (até ao tamanho comercial)
 # ---------------------------------------------------------------------------
 with aba_biomassa:
-    st.markdown(f"Jaula com **{N_PEIXES:,} juvenis** de 3 g. ".replace(",", " ") +
+    st.markdown(f"**{milhares(n_juvenis)} juvenis** de {virgula(peso_inicial).replace(',0', '')} g. "
                 "A biomassa é o peso total dos peixes vivos; a ração é a soma da ração dada desde o início.")
 
     # Uma linha por espécie e por dia, com a ração acumulada
@@ -221,13 +394,13 @@ with aba_biomassa:
     grafico_biomassa = alt.Chart(dados_bio).mark_line(strokeWidth=2.5).encode(
         x=eixo_x, y=alt.Y("biomassa_kg:Q", title="Biomassa (kg)"), color=cor,
         tooltip=[alt.Tooltip("nome:N", title="Espécie"), alt.Tooltip("dia:Q", title="Dia"),
-                 alt.Tooltip("biomassa_kg:Q", title="Biomassa (kg)", format=".0f"),
-                 alt.Tooltip("n_peixes:Q", title="Peixes vivos")]
-    ).properties(height=260, title=alt.Title("Biomassa na jaula"))
+                 alt.Tooltip("biomassa_kg:Q", title="Biomassa (kg)", format=",.0f"),
+                 alt.Tooltip("n_peixes:Q", title="Peixes vivos", format=",")]
+    ).properties(height=260, title=alt.Title("Biomassa"))
     grafico_racao = alt.Chart(dados_bio).mark_line(strokeWidth=2.5, strokeDash=[6, 3]).encode(
         x=eixo_x, y=alt.Y("racao_acumulada:Q", title="Ração (kg)"), color=cor,
         tooltip=[alt.Tooltip("nome:N", title="Espécie"), alt.Tooltip("dia:Q", title="Dia"),
-                 alt.Tooltip("racao_acumulada:Q", title="Ração acumulada (kg)", format=".0f")]
+                 alt.Tooltip("racao_acumulada:Q", title="Ração acumulada (kg)", format=",.0f")]
     ).properties(height=260, title=alt.Title("Ração acumulada"))
 
     col_bio, col_racao = st.columns(2, gap="medium")
@@ -235,20 +408,26 @@ with aba_biomassa:
     col_racao.altair_chart(grafico_racao, width="stretch")
 
     # Resumo no dia em que cada espécie chega ao tamanho comercial
-    resumo = pd.DataFrame([{
-        "Espécie": NOMES[e],
-        "Dias": d,
-        "Peixes vivos": int(simulacoes[e].loc[d, "n_peixes"]),
-        "Biomassa (kg)": round(simulacoes[e].loc[d, "biomassa_kg"]),
-        "Ração gasta (kg)": round(simulacoes[e].loc[:d, "racao_kg"].sum()),
-    } for e, d in dias_alvo.items() if d is not None])
-    if len(resumo):
+    linhas = []
+    for e, d in dias_alvo.items():
+        if d is None:
+            continue
+        linha = {"Espécie": NOMES[e], "Dias": d,
+                 "Peixes vivos": milhares(simulacoes[e].loc[d, "n_peixes"]),
+                 "Biomassa (kg)": milhares(simulacoes[e].loc[d, "biomassa_kg"]),
+                 "Ração gasta (kg)": milhares(simulacoes[e].loc[:d, "racao_kg"].sum())}
+        if densidade is not None:
+            linha["Volume de tanque (m³)"] = virgula(simulacoes[e].loc[d, "biomassa_kg"] / densidade)
+        linhas.append(linha)
+    if linhas:
         st.markdown(f"**No dia em que chega aos {peso_comercial} g**")
-        st.dataframe(resumo, hide_index=True)
+        st.dataframe(pd.DataFrame(linhas), hide_index=True)
+        if densidade is not None:
+            st.caption(f"Volume de tanque necessário para ter essa biomassa a {densidade} kg/m³.")
 
 
 # ---------------------------------------------------------------------------
-# 7. Tabela com os dados simulados (para descarregar)
+# 8. Tabela com os dados simulados (para descarregar)
 # ---------------------------------------------------------------------------
 with aba_dados:
     st.markdown("Valores diários da simulação, até ao fim do gráfico. **Dados simulados.**")
@@ -263,7 +442,7 @@ with aba_dados:
 
 
 # ---------------------------------------------------------------------------
-# 8. Explicação do modelo
+# 9. Explicação do modelo
 # ---------------------------------------------------------------------------
 with aba_modelo:
     st.markdown(r"""
@@ -271,8 +450,9 @@ Cada peixe cresce, dia a dia, segundo
 
 $$\frac{dW}{dt} = a \cdot W^{\,b} \cdot e^{\,c \cdot T}$$
 
-com $W$ o peso (g) e $T$ a temperatura (°C). Simulamos uma jaula de 1 000 juvenis de 3 g,
-com variação individual no crescimento e mortalidade diária.
+com $W$ o peso (g) e $T$ a temperatura (°C). Simulamos 1 000 juvenis, com variação individual
+no crescimento e mortalidade diária; para outro número de juvenis, os totais (biomassa, ração,
+peixes vivos) crescem na mesma proporção.
 
 | | Dourada | Robalo |
 |---|---|---|
@@ -280,9 +460,18 @@ com variação individual no crescimento e mortalidade diária.
 | Sobrevivência no ciclo | 80 % (Muniesa et al., 2020) | 85 % (Muniesa et al., 2020) |
 | FCR | 2,1 (Kallitsis & Avramidis, 2025) | 2,2 (Kallitsis & Avramidis, 2025) |
 | Ração restrita | 80 %: crescimento × 0,92, FCR × 0,83 (Bonaldo et al., 2010) | 75 %: crescimento × 0,88, FCR igual (Türkmen et al., 2012) |
+| Densidade em tanque / RAS | sem dados | até 70 kg/m³ sem efeito; 100 kg/m³: crescimento × 0,86 (Sammouth et al., 2009) |
+| IMTA | sem dados | FCR × 0,89 (Cotou et al., 2024) |
+
+**Sistemas de cultivo:** na jaula a temperatura segue uma curva sazonal (pressuposto, ± 4 °C);
+no tanque / RAS é constante, por defeito 22 °C (meio do intervalo 18–26 °C da FAO, 2009).
+
+**As tuas medições:** as temperaturas são interpoladas para ter um valor por dia; os dias do ciclo
+sem medição usam a média do mesmo dia do ano nas tuas medições. As pesagens não mudam a simulação:
+servem para ver se o teu cultivo cresce como o modelo prevê.
 
 **Limitações:** o modelo não tem temperatura ótima (por isso a temperatura está limitada a 25 °C),
-a mortalidade é constante e os efeitos da ração vêm de ensaios curtos com juvenis.
+a mortalidade é constante e os efeitos da ração, da densidade e do IMTA vêm de ensaios curtos.
 """)
     st.link_button("Ver o código, os notebooks e as referências no GitHub", URL_GITHUB,
                    icon=":material/code:")
