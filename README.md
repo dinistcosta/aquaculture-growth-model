@@ -181,11 +181,10 @@ Python · NumPy · pandas · Matplotlib · seaborn · SciPy · Jupyter
 - FAO (2009). *Sparus aurata*. In: Cultured aquatic species fact sheets. Texto de Colloca, F. & Cerasi, S.; editado por Crespi, V. & New, M.
 - Hernández, J.M., Gasca-Leyva, E., León, C.J. & Vergara, J.M. (2003). A growth model for gilthead seabream (*Sparus aurata*). *Ecological Modelling* 165: 265–283. https://doi.org/10.1016/S0304-3800(03)00095-4
 - Kallitsis, E. & Avramidis, P. (2025). Life cycle assessment of aquaculture production in Greece. *Cleaner Environmental Systems* 16: 100261. https://doi.org/10.1016/j.cesys.2025.100261
-- Kallitsis, E., Korre, A., Mousamas, D. & Avramidis, P. (2020). *Sustainability* 12: 9617.
 - Kraljević, M., Dulčić, J. & Tudor, M. (1998). Growth parameters of the gilt-head sea bream *Sparus aurata* L. in the eastern Adriatic (Croatian waters). *Periodicum Biologorum* 100: 87–91.
 - Lanari, D., D'Agaro, E. & Ballestrazzi, R. (2002). Growth parameters in European sea bass (*Dicentrarchus labrax* L.): effects of live weight and water temperature. *Italian Journal of Animal Science* 1: 181–185. https://doi.org/10.4081/ijas.2002.181
 - Muniesa, A. et al. (2020). Mapping the knowledge of the main diseases affecting sea bass and sea bream in Mediterranean. *Transboundary and Emerging Diseases* 67: 1089–1100. https://doi.org/10.1111/tbed.13482
-- Person-Le Ruyet, J. et al. (2004). *Aquaculture* 237: 269–280.
+- Person-Le Ruyet, J., Mahé, K., Le Bayon, N. & Le Delliou, H. (2004). Effects of temperature on growth and metabolism in a Mediterranean population of European sea bass, *Dicentrarchus labrax*. *Aquaculture* 237: 269–280. https://doi.org/10.1016/j.aquaculture.2004.04.021
 - Sammouth, S., Roque d'Orbcastel, E., Gasset, E., Lemarié, G., Breuil, G., Marino, G., Coeurdacier, J.-L., Fivelstad, S. & Blancheton, J.-P. (2009). The effect of density on sea bass (*Dicentrarchus labrax*) performance in a tank-based recirculating system. *Aquacultural Engineering* 40: 72–78. https://doi.org/10.1016/j.aquaeng.2008.11.004
 - Somers, I.F. (1988). On a seasonally oscillating growth function. *Fishbyte* 6(1): 8–11.
 - Türkmen, S., Eroldoğan, O.T., Yılmaz, H.A., Ölçülü, A., İnan, G.A.K., Erçen, Z. & Tekelioğlu, N. (2012). Compensatory growth response of European sea bass (*Dicentrarchus labrax* L.) under cycled starvation and restricted feeding rate. *Aquaculture Research* 43: 1643–1650. https://doi.org/10.1111/j.1365-2109.2011.02970.x

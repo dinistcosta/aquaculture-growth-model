@@ -110,19 +110,16 @@ CENARIOS_ALIMENTACAO = {
 # Peso dos juvenis à entrada na jaula: 2–4 g (Cardia & Lovatelli, 2007). Usamos 3 g.
 PESO_INICIAL_G = 3.0
 
-# Intervalo de FCR observado entre explorações, usado para dar variação ao FCR:
-# 1,85–2,5 (Kallitsis, Korre, Mousamas & Avramidis, 2020. Sustainability 12: 9617;
-# Kallitsis & Avramidis, 2025).
-FCR_MIN, FCR_MAX = 1.85, 2.5
-
 # PRESSUPOSTO (sem referência): variação individual no ritmo de crescimento.
 # Cada peixe cresce a um ritmo multiplicado por um fator ~ Normal(1; 0,15).
 CV_CRESCIMENTO_INDIVIDUAL = 0.15
 
 # Limite de validade: nas equações acima o crescimento aumenta sempre com a
 # temperatura (não há temperatura ótima). A temperatura ótima de crescimento do
-# robalo é cerca de 26 °C (Person-Le Ruyet, J. et al., 2004. Aquaculture 237:
-# 269–280), por isso não usamos o modelo acima de 25 °C.
+# robalo é cerca de 26 °C (Person-Le Ruyet, J., Mahé, K., Le Bayon, N. &
+# Le Delliou, H., 2004. Effects of temperature on growth and metabolism in a
+# Mediterranean population of European sea bass, Dicentrarchus labrax.
+# Aquaculture 237: 269–280), por isso não usamos o modelo acima de 25 °C.
 TEMPERATURA_MAXIMA_VALIDA = 25.0
 
 
