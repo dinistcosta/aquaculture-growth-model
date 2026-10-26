@@ -14,26 +14,44 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 # 1. Parâmetros das espécies (com referências)
 # ---------------------------------------------------------------------------
-# Modelo de crescimento diário usado para as duas espécies:
+# Modelo de crescimento: coeficiente de crescimento térmico (TGC)
 #
-#     crescimento (g/dia) = a * W^b * exp(c * T)
+# O crescimento depende da temperatura ACUMULADA acima de uma temperatura base
+# (temperatura efetiva). Abaixo de 12 °C a dourada não cresce (Mayer et al., 2008).
+# Em cada dia, com T a temperatura da água (°C):
 #
-#     W = peso do peixe (g), T = temperatura da água (°C)
+#     temperatura efetiva = T - 12   (0 se T < 12)
+#     peixes < peso crítico:   W^(1/3) aumenta TGC_1/3 x temperatura efetiva
+#     peixes >= peso crítico:  W^(2/3) aumenta TGC_2/3 x temperatura efetiva
 #
-# A mesma forma de equação foi ajustada, em estudos independentes, para as duas
-# espécies, o que permite compará-las de forma justa.
+#     W = peso do peixe (g)
+#
+# O peso crítico é o peso em que as duas fases crescem ao mesmo ritmo:
+#     peso crítico = (TGC_2/3 / TGC_1/3)^3 / 8      (≈ 117 g na dourada)
+#
+# Mayer, P., Estruch, V.D. & Jover, M. (2012). A two-stage growth model for
+# gilthead sea bream (Sparus aurata) based on the thermal growth coefficient.
+# Aquaculture 358–359: 6–13. doi:10.1016/j.aquaculture.2012.06.016
+# (20 lotes de dourada em jaulas comerciais em Valência, Espanha; peso inicial
+# 6–44 g; validado com 6 lotes novos.)
+#
+# NOTA: até 2026 o projeto usava crescimento = 0,024 * W^0,514 * exp(0,060 * T).
+# Essa equação é de Lupatsch, Kissil & Sklan (2003), e não de Hernández et al.
+# (2003) como estava escrito. Aplicada às jaulas comerciais, errava o peso final
+# em 16,6 %, contra cerca de 11 % dos modelos com temperatura efetiva:
+# Mayer, P., Estruch, V.D., Blasco, J. & Jover, M. (2008). Predicting the growth
+# of gilthead sea bream (Sparus aurata L.) farmed in marine cages under real
+# production conditions using temperature- and time-dependent models.
+# Aquaculture Research 39: 1046–1052. doi:10.1111/j.1365-2109.2008.01963.x
 
 PARAMETROS = {
     "dourada": {
         "nome_cientifico": "Sparus aurata",
-        # Hernández, J.M., Gasca-Leyva, E., León, C.J. & Vergara, J.M. (2003).
-        # A growth model for gilthead seabream (Sparus aurata).
-        # Ecological Modelling 165: 265–283. doi:10.1016/S0304-3800(03)00095-4
-        "a": 0.024,
-        "b": 0.514,
-        "c": 0.060,
-        # Fator de calibração: 1 = equação original, sem ajuste.
-        "fator_calibracao": 1.0,
+        # Mayer et al. (2012), Tabela 2 (20 lotes em jaulas comerciais).
+        "tgc_1_3": 0.001646,
+        "tgc_2_3": 0.016095,
+        # Temperatura mínima para a dourada comer e crescer (Mayer et al., 2008).
+        "temperatura_base": 12.0,
         # Sobrevivência num ciclo de engorda: 80 %.
         # Muniesa, A. et al. (2020). Mapping the knowledge of the main diseases
         # affecting sea bass and sea bream in Mediterranean.
@@ -51,20 +69,19 @@ PARAMETROS = {
     },
     "robalo": {
         "nome_cientifico": "Dicentrarchus labrax",
-        # Lanari, D., D'Agaro, E. & Ballestrazzi, R. (2002). Growth parameters in
-        # European sea bass (Dicentrarchus labrax L.): effects of live weight and
-        # water temperature. Italian Journal of Animal Science 1: 181–185.
-        # doi:10.4081/ijas.2002.181
-        "a": 0.010,
-        "b": 0.68,
-        "c": 0.05,
-        # CALIBRAÇÃO (não é um valor publicado): com a equação original, e a nossa
-        # curva de temperatura, o robalo demorava ~20 meses a chegar aos 400 g,
-        # acima dos 16–18 meses de Cardia & Lovatelli (2007). Multiplicamos o
-        # crescimento por 1,14 para chegar aos ~18 meses. O fator representa
-        # diferenças de regime de cultivo (densidade, ração, genética, tipo de
-        # instalação) entre o estudo original e os ciclos de referência.
-        "fator_calibracao": 1.14,
+        # CALIBRAÇÃO (não é um valor publicado): não encontrámos um TGC do robalo
+        # medido em jaulas comerciais. Usamos o TGC clássico (só a fase W^(1/3))
+        # com um valor escolhido para que, com a curva de temperatura de
+        # perfil_temperatura e entrada em abril, o robalo demore mais 13 % do que
+        # a dourada a ir de 3 g a 400 g. 13 % é a diferença entre os ciclos de
+        # referência das duas espécies: 14–16 meses na dourada e 16–18 meses no
+        # robalo (Cardia & Lovatelli, 2007). Quem tiver dados de uma exploração
+        # deve substituir este valor pelo TGC medido nessa exploração.
+        "tgc_1_3": 0.00129,
+        "tgc_2_3": None,
+        # PRESSUPOSTO: a mesma temperatura base da dourada (sem valor publicado
+        # encontrado para o robalo em engorda).
+        "temperatura_base": 12.0,
         # Sobrevivência num ciclo de engorda: 85 % (Muniesa et al., 2020).
         "sobrevivencia_ciclo": 0.85,
         # Duração de referência: 16–18 meses (usamos 17) (Cardia & Lovatelli, 2007).
@@ -79,7 +96,8 @@ PARAMETROS = {
 # - fator_crescimento: quanto fica o crescimento (razão entre as SGR)
 # - fator_fcr: quanto fica o FCR (razão entre os FCR)
 # Nos dois estudos os peixes eram juvenis, em tanques, durante 1–3 meses;
-# aplicar estes fatores a um ciclo inteiro é uma extrapolação.
+# aplicar estes fatores a um ciclo inteiro é uma extrapolação. No modelo TGC o
+# fator de crescimento multiplica o TGC (aproximação: os estudos mediram a SGR).
 CENARIOS_ALIMENTACAO = {
     "dourada": {
         "saciedade": {"fator_crescimento": 1.0, "fator_fcr": 1.0},
@@ -114,12 +132,13 @@ PESO_INICIAL_G = 3.0
 # Cada peixe cresce a um ritmo multiplicado por um fator ~ Normal(1; 0,15).
 CV_CRESCIMENTO_INDIVIDUAL = 0.15
 
-# Limite de validade: nas equações acima o crescimento aumenta sempre com a
-# temperatura (não há temperatura ótima). A temperatura ótima de crescimento do
-# robalo é cerca de 26 °C (Person-Le Ruyet, J., Mahé, K., Le Bayon, N. &
-# Le Delliou, H., 2004. Effects of temperature on growth and metabolism in a
-# Mediterranean population of European sea bass, Dicentrarchus labrax.
-# Aquaculture 237: 269–280), por isso não usamos o modelo acima de 25 °C.
+# Limite de validade: no modelo TGC o crescimento aumenta sempre com a
+# temperatura (não há temperatura ótima). Os dados de Mayer et al. (2008) iam até
+# 26,5 °C, e a temperatura ótima de crescimento do robalo é cerca de 26 °C
+# (Person-Le Ruyet, J., Mahé, K., Le Bayon, N. & Le Delliou, H., 2004. Effects of
+# temperature on growth and metabolism in a Mediterranean population of European
+# sea bass, Dicentrarchus labrax. Aquaculture 237: 269–280.
+# doi:10.1016/j.aquaculture.2004.04.021), por isso não usamos o modelo acima de 25 °C.
 TEMPERATURA_MAXIMA_VALIDA = 25.0
 
 
@@ -127,14 +146,32 @@ TEMPERATURA_MAXIMA_VALIDA = 25.0
 # 2. Funções do modelo
 # ---------------------------------------------------------------------------
 
-def crescimento_diario(peso_g, temperatura_c, especie):
-    """Ganho de peso de um peixe num dia (g/dia).
+def peso_critico(parametros):
+    """Peso (g) em que o crescimento passa da fase W^(1/3) para a fase W^(2/3).
+
+    Sem TGC_2/3 (só uma fase), devolve infinito.
+    """
+    if not parametros.get("tgc_2_3"):
+        return np.inf
+    return (parametros["tgc_2_3"] / parametros["tgc_1_3"]) ** 3 / 8
+
+
+def crescimento_diario(peso_g, temperatura_c, especie, parametros=None, fator=1.0):
+    """Ganho de peso de um peixe num dia (g/dia), pelo modelo TGC.
 
     peso_g pode ser um número ou um array com o peso de vários peixes.
+    parametros: dicionário que substitui os valores de PARAMETROS[especie]
+    (ex.: o TGC medido numa exploração).
+    fator: multiplica o crescimento (variação individual, cenários de alimentação).
     """
-    p = PARAMETROS[especie]
-    return (p["a"] * np.power(peso_g, p["b"]) * np.exp(p["c"] * temperatura_c)
-            * p["fator_calibracao"])
+    p = {**PARAMETROS[especie], **(parametros or {})}
+    peso = np.asarray(peso_g, dtype=float)
+    efetiva = max(temperatura_c - p["temperatura_base"], 0.0) * fator
+    fase_1 = peso < peso_critico(p)
+    novo = np.where(fase_1,
+                    (np.cbrt(peso) + p["tgc_1_3"] * efetiva) ** 3,
+                    (peso ** (2 / 3) + (p["tgc_2_3"] or 0.0) * efetiva) ** 1.5)
+    return novo - peso
 
 
 def perfil_temperatura(n_dias, data_inicio="2024-04-01", media=19.0, amplitude=4.0,
@@ -153,7 +190,7 @@ def perfil_temperatura(n_dias, data_inicio="2024-04-01", media=19.0, amplitude=4
 
 def simular_ciclo(especie, n_dias=640, n_peixes=5000, temperatura=None,
                   data_inicio="2024-04-01", peso_inicial_g=PESO_INICIAL_G,
-                  fator_crescimento=1.0, fcr=None, semente=42):
+                  fator_crescimento=1.0, fcr=None, parametros=None, semente=42):
     """Simula, dia a dia, um ciclo de engorda numa jaula.
 
     Devolve uma tabela (DataFrame) com uma linha por dia:
@@ -165,8 +202,10 @@ def simular_ciclo(especie, n_dias=640, n_peixes=5000, temperatura=None,
     - fator_crescimento: multiplica o crescimento (usado nos cenários de
       alimentação; 1 = alimentação normal).
     - fcr: índice de conversão alimentar (se None, usa o valor da espécie).
+    - parametros: valores que substituem os de PARAMETROS[especie] (ex.: TGC
+      ou sobrevivência de uma exploração).
     """
-    p = PARAMETROS[especie]
+    p = {**PARAMETROS[especie], **(parametros or {})}
     gerador = np.random.default_rng(semente)
 
     if temperatura is None:
@@ -197,7 +236,8 @@ def simular_ciclo(especie, n_dias=640, n_peixes=5000, temperatura=None,
         vivo[morre] = False
 
         # 2) Crescimento dos peixes vivos
-        ganho = crescimento_diario(pesos[vivo], temperatura[dia], especie) * ritmo[vivo] * fator_crescimento
+        ganho = crescimento_diario(pesos[vivo], temperatura[dia], especie, p,
+                                   fator=ritmo[vivo] * fator_crescimento)
         pesos[vivo] += ganho
 
         # 3) Ração: o ganho de biomassa do dia vezes o FCR, com variação diária
