@@ -74,6 +74,39 @@ PARAMETROS = {
     },
 }
 
+# Cenários de alimentação: efeito de dar menos ração do que a saciedade.
+# Os valores são RELATIVOS à alimentação até à saciedade (= simulação base):
+# - fator_crescimento: quanto fica o crescimento (razão entre as SGR)
+# - fator_fcr: quanto fica o FCR (razão entre os FCR)
+# Nos dois estudos os peixes eram juvenis, em tanques, durante 1–3 meses;
+# aplicar estes fatores a um ciclo inteiro é uma extrapolação.
+CENARIOS_ALIMENTACAO = {
+    "dourada": {
+        "saciedade": {"fator_crescimento": 1.0, "fator_fcr": 1.0},
+        # Bonaldo, A., Isani, G., Fontanillas, R., Parma, L., Grilli, E. & Gatta, P.P.
+        # (2010). Growth and feed utilization of gilthead sea bream (Sparus aurata,
+        # L.) fed to satiation and restrictively at increasing dietary energy levels.
+        # Aquaculture International 18: 909–919. doi:10.1007/s10499-009-9312-0
+        # Peixes de 73 g, 81 dias, 24 °C. Médias das 3 dietas (Tabela 2):
+        #   SGR (calculada do peso inicial e final): 1,50 vs 1,37 %/dia -> 0,92
+        #   FCR: 1,37 vs 1,14 -> 0,83
+        "restrita": {"fator_crescimento": 0.92, "fator_fcr": 0.83,
+                     "descricao": "80 % da saciedade"},
+    },
+    "robalo": {
+        "saciedade": {"fator_crescimento": 1.0, "fator_fcr": 1.0},
+        # Türkmen, S., Eroldoğan, O.T., Yılmaz, H.A., Ölçülü, A., İnan, G.A.K.,
+        # Erçen, Z. & Tekelioğlu, N. (2012). Compensatory growth response of
+        # European sea bass (Dicentrarchus labrax L.) under cycled starvation and
+        # restricted feeding rate. Aquaculture Research 43: 1643–1650.
+        # doi:10.1111/j.1365-2109.2011.02970.x
+        # Peixes de 10,5 g. SGR 2,5 (saciedade) vs 2,2 %/dia (alimentação 25 %
+        # restrita) -> 0,88. FCR sem diferença significativa -> 1,0.
+        "restrita": {"fator_crescimento": 0.88, "fator_fcr": 1.0,
+                     "descricao": "75 % da saciedade"},
+    },
+}
+
 # Peso dos juvenis à entrada na jaula: 2–4 g (Cardia & Lovatelli, 2007). Usamos 3 g.
 PESO_INICIAL_G = 3.0
 
