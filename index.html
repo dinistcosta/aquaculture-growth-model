@@ -53,7 +53,9 @@
   <script type="module">
     import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@1.10.0/build/stlite.js";
 
-    const fonte = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap";
+    // Só o nome da letra: a Inter já vem do Google Fonts (<link> acima). Com um URL
+    // no tema ("Inter:https://..."), o stlite 1.10.0 dá erro e a página fica em branco.
+    const fonte = "Inter, sans-serif";
     mount(
       {
         requirements: ["numpy", "pandas", "altair"],

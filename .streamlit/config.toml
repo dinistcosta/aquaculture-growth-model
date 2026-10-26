@@ -1,5 +1,6 @@
 # Tema da app (cores do mar). Usado com "streamlit run app.py".
-# O site (index.html) repete estes valores em streamlitConfig.
+# O site (index.html) repete estes valores em streamlitConfig, mas aí a letra
+# vai sem URL (com URL, o stlite fica em branco).
 [theme]
 base = "light"
 primaryColor = "#0E7490"
