@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Modelo de crescimento de dourada e robalo</title>
-  <meta name="description" content="Modelo de crescimento de dourada e robalo em aquacultura (dados simulados)." />
+  <meta name="description" content="Modelo de crescimento de dourada e robalo em aquacultura (dados simulados). Sea bream and sea bass growth model for aquaculture (simulated data)." />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230E7490'/><polyline points='18,74 40,52 56,62 82,30' fill='none' stroke='white' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
   <!--
     Site do projeto, publicado no GitHub Pages.
@@ -28,7 +28,6 @@
       gap: 1rem; padding: 1.5rem 1rem; text-align: center; box-sizing: border-box;
       background: radial-gradient(ellipse at top, #E3F1F5 0%, var(--fundo) 60%);
     }
-    .carregar p.etiqueta { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--oceano); }
     .carregar h1 { margin: 0; font-size: clamp(1.4rem, 4vw, 2rem); font-weight: 700; letter-spacing: -0.01em; }
     .carregar p { margin: 0; max-width: 32rem; color: var(--texto-suave); line-height: 1.5; }
     .carregar .barra { width: min(16rem, 70vw); height: 4px; border-radius: 4px; background: var(--anel); overflow: hidden; }
@@ -43,12 +42,25 @@
 <body>
   <div id="root">
     <div class="carregar">
-      <p class="etiqueta">Aquacultura · Modelação do crescimento</p>
-      <h1>Modelo de crescimento de dourada e robalo</h1>
-      <p>A carregar o modelo, que corre em Python no browser.<br />A primeira visita pode demorar 10 a 30 segundos.</p>
-      <div class="barra" role="progressbar" aria-label="A carregar"></div>
+      <h1 id="titulo">Modelo de crescimento de dourada e robalo</h1>
+      <p id="aviso">A carregar o modelo, que corre em Python no browser.<br />A primeira visita pode demorar 10 a 30 segundos.</p>
+      <div class="barra" id="barra" role="progressbar" aria-label="A carregar"></div>
     </div>
   </div>
+  <script>
+    // Ecrã de carregamento em inglês se o link tiver ?lang=en ou se o browser não estiver em português
+    // (a app escolhe a língua da mesma maneira).
+    const lang = new URLSearchParams(location.search).get("lang")
+      || (navigator.language.startsWith("pt") ? "pt" : "en");
+    if (lang === "en") {
+      document.documentElement.lang = "en";
+      document.title = "Sea bream and sea bass growth model";
+      document.getElementById("titulo").textContent = "Sea bream and sea bass growth model";
+      document.getElementById("aviso").innerHTML =
+        "Loading the model, which runs in Python in the browser.<br />The first visit can take 10 to 30 seconds.";
+      document.getElementById("barra").setAttribute("aria-label", "Loading");
+    }
+  </script>
   <script type="module">
     import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@1.10.0/build/stlite.js";
 
