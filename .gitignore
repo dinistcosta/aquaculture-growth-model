@@ -1,0 +1,13 @@
+# Ambiente virtual (cada pessoa cria o seu)
+venv/
+
+# Ficheiros temporários do Python e do Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Ficheiros do macOS
+.DS_Store
+
+# Artigos científicos em PDF (consultados, mas não distribuídos no repositório)
+data/raw/*.pdf
