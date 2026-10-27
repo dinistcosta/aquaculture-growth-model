@@ -224,7 +224,7 @@ aquaculture-growth-model/
 ├── notebooks/          análises 01 a 06
 ├── src/                funções reutilizáveis
 ├── figures/            gráficos exportados
-├── imagens/            fotografias do ecrã de abertura
+├── imagens/            imagem de pré-visualização do link do site
 ├── app.py              app interativa (Streamlit)
 ├── index.html          site do projeto (corre a app.py no browser)
 ├── PRODUCT.md          contexto do produto (público, objetivos, regras de estilo)
@@ -258,14 +258,6 @@ Python · NumPy · pandas · Matplotlib · seaborn · SciPy · Jupyter · Stream
 - Sammouth, S., Roque d'Orbcastel, E., Gasset, E., Lemarié, G., Breuil, G., Marino, G., Coeurdacier, J.-L., Fivelstad, S. & Blancheton, J.-P. (2009). The effect of density on sea bass (*Dicentrarchus labrax*) performance in a tank-based recirculating system. *Aquacultural Engineering* 40: 72–78. https://doi.org/10.1016/j.aquaeng.2008.11.004
 - Somers, I.F. (1988). On a seasonally oscillating growth function. *Fishbyte* 6(1): 8–11.
 - Türkmen, S., Eroldoğan, O.T., Yılmaz, H.A., Ölçülü, A., İnan, G.A.K., Erçen, Z. & Tekelioğlu, N. (2012). Compensatory growth response of European sea bass (*Dicentrarchus labrax* L.) under cycled starvation and restricted feeding rate. *Aquaculture Research* 43: 1643–1650. https://doi.org/10.1111/j.1365-2109.2011.02970.x
-
-## Fotografias
-
-As fotografias do ecrã de abertura do site (pasta `imagens/`, recortadas e reduzidas) vêm do Wikimedia Commons:
-- Dourada: Isabelle Cheret, Ifremer, CC BY 4.0 ("Daurades royales (Sparus aurata) en bassin").
-- Robalo: Olivier Dugornay, Ifremer, CC BY 4.0 ("Bar commun (Dicentrarchus labrax)").
-- Pregado: Stéphane Lesbats, Ifremer, CC BY 4.0 ("Turbots (Scophthalmus maximus)").
-- Linguado: Mario Lepage, CC BY 3.0 ("Solea senegalensis").
 
 ## Agradecimentos
 

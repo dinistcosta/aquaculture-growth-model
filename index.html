@@ -5,19 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Quanto tempo demora um peixe a chegar ao tamanho comercial?</title>
   <meta name="description" content="Modelo de crescimento de dourada, robalo, pregado e linguado em aquacultura (dados simulados). Growth model for sea bream, sea bass, turbot and sole in aquaculture (simulated data)." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='14' fill='%231F5C66'/><polyline points='18,74 40,52 56,62 82,30' fill='none' stroke='white' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='14' fill='%231F5C66'/><path d='M18 78 C44 77 56 66 64 50 S76 26 84 20' fill='none' stroke='white' stroke-width='9' stroke-linecap='round'/></svg>" />
   <!--
     Site do projeto, publicado no GitHub Pages.
     O stlite corre a app.py (Streamlit) dentro do browser, com Python (Pyodide),
     sem precisar de servidor. Os ficheiros são lidos do próprio repositório.
   -->
+  <!-- Pré-visualização quando o link é partilhado (LinkedIn, WhatsApp, etc.) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Quanto tempo demora um peixe a chegar ao tamanho comercial?" />
+  <meta property="og:description" content="Modelo de crescimento de dourada, robalo, pregado e linguado em aquacultura, com parâmetros da literatura científica (dados simulados)." />
+  <meta property="og:url" content="https://dinistcosta.github.io/aquaculture-growth-model/" />
+  <meta property="og:image" content="https://dinistcosta.github.io/aquaculture-growth-model/imagens/pre_visualizacao.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Curvas de crescimento das quatro espécies até ao tamanho comercial." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <!-- O stlite é o ficheiro mais pesado: começa a descarregar logo, antes do resto da página -->
+  <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@stlite/browser@1.10.0/build/stlite.js" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/browser@1.10.0/build/stlite.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" />
   <style>
     :root {
       --oceano: #1F5C66;
-      --oceano-escuro: #1F5C66;
       --fundo: #F5F0E6;
       --texto: #22201C;
       --texto-suave: #5A5248;
@@ -28,42 +39,70 @@
     /* Ecrã de carregamento: fica por cima da app até aparecerem os primeiros resultados */
     .carregar {
       position: fixed; inset: 0; z-index: 1000; overflow-y: auto;
-      display: flex; justify-content: center; align-items: flex-start;
-      padding: clamp(1.5rem, 6vh, 4rem) 1rem 2rem; box-sizing: border-box;
+      padding: 4.5rem clamp(1rem, 5vw, 5rem) 3rem; box-sizing: border-box;   /* = topo da app (app.py) */
       background: var(--fundo);
       transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .carregar.saida { opacity: 0; pointer-events: none; }
-    .carregar .conteudo { width: min(60rem, 100%); display: flex; flex-direction: column; gap: 1.25rem; }
+    .carregar .conteudo { display: flex; flex-direction: column; gap: 1.25rem; }
     .carregar header { padding-bottom: 0.9rem; border-bottom: 3px double var(--texto-suave); }
-    .carregar h1 { margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: clamp(2rem, 1.2rem + 3vw, 3.4rem); font-weight: 600; line-height: 1.08; letter-spacing: -0.015em; text-wrap: balance; max-width: 20ch; }
+    .carregar h1 { margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: clamp(2rem, 1.3rem + 2.4vw, 3rem); font-weight: 600; line-height: 1.1; letter-spacing: -0.01em; text-wrap: balance; max-width: 22ch; }
     .carregar .subtitulo { margin: 0.6rem 0 0; font-family: 'Source Serif 4', Georgia, serif; font-style: italic; font-size: 1.2rem; color: var(--texto-suave); }
     .carregar p { margin: 0; max-width: 68ch; line-height: 1.55; }
     .carregar .lead { font-size: 1.08rem; }
-    .carregar .fotos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
-    .carregar .fotos figure { margin: 0; }
-    .carregar .fotos img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 2px; border: 1px solid var(--anel); background: var(--anel); }
-    .carregar .fotos figcaption { margin-top: 0.35rem; font-size: 0.9rem; line-height: 1.3; }
-    .carregar .fotos figcaption i { font-family: 'Source Serif 4', Georgia, serif; color: var(--texto-suave); }
+    /* Figura de abertura: curvas de crescimento até ao tamanho comercial (desenham-se enquanto o modelo carrega) */
+    .carregar .figura { margin: 0; display: flex; flex-direction: column; gap: 0.9rem; }
+    .carregar .figura svg { display: block; width: 100%; height: auto; max-width: 46rem; }
+    .carregar .figura svg text { font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 13px; fill: var(--texto-suave); }
+    /* Avisos de progresso do stlite ("Loading Pyodide...", em inglês): escondidos enquanto o ecrã de
+       abertura está à vista; os avisos de erro continuam a aparecer */
+    body:has(#carregar) .Toastify__toast--default { display: none; }
+    .carregar .curva { fill: none; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
+    .carregar .meses { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+    .carregar .meses li { line-height: 1.3; }
+    .carregar .meses .especie { display: flex; align-items: center; gap: 0.4rem; }
+    .carregar .meses .especie::before { content: ""; width: 0.65rem; height: 0.65rem; border-radius: 50%; background: var(--cor); }
+    .carregar .meses b { display: block; font-family: 'Source Serif 4', Georgia, serif; font-size: 1.45rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 0.1rem; }
+    .carregar .meses small { font-size: 0.9rem; color: var(--texto-suave); }
+    .carregar .figura figcaption { font-size: 0.9rem; color: var(--texto-suave); max-width: 72ch; line-height: 1.45; }
+    .carregar .figura figcaption strong { font-family: 'Source Serif 4', Georgia, serif; color: var(--texto); }
     .carregar .faz { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.9rem 2rem; margin: 0; padding: 1rem 0; border-top: 1px solid var(--anel); border-bottom: 1px solid var(--anel); }
     .carregar .faz div { line-height: 1.5; }
     .carregar .faz dt { font-family: 'Source Serif 4', Georgia, serif; font-weight: 600; font-size: 1.08rem; }
     .carregar .faz dd { margin: 0.15rem 0 0; color: var(--texto-suave); }
+    .carregar .carga { display: flex; flex-direction: column; gap: 0.55rem; max-width: 46rem; }
     .carregar .estado { color: var(--texto-suave); font-size: 0.95rem; }
+    .carregar .estado a { white-space: nowrap; }
+    .carregar .abrir {
+      align-self: flex-start; min-height: 44px; padding: 0.55rem 1.1rem; border: 1px solid var(--oceano); border-radius: 0.25rem;
+      background: var(--oceano); color: var(--fundo); font: 500 1rem 'IBM Plex Sans', system-ui, sans-serif; cursor: pointer;
+      transition: background-color 0.2s ease-out;
+    }
+    .carregar .abrir:hover { background: #174850; }
+    .carregar .abrir:focus-visible { outline: 2px solid var(--oceano); outline-offset: 3px; }
+    .carregar .barra.pronta::after { width: 100%; animation: none; transform: none; }
+    .carregar .barra.lenta::after { animation-duration: 3.2s; opacity: 0.6; }
     .carregar .autor { font-size: 0.95rem; }
-    .carregar .creditos { font-size: 0.8rem; color: var(--texto-suave); }
-    .carregar a { color: var(--oceano-escuro); text-underline-offset: 0.15em; }
-    .carregar a:focus-visible { outline: 2px solid var(--oceano-escuro); outline-offset: 2px; border-radius: 2px; }
+    .carregar a { color: var(--oceano); text-underline-offset: 0.15em; }
+    .carregar a:focus-visible { outline: 2px solid var(--oceano); outline-offset: 2px; border-radius: 2px; }
     .carregar .barra { width: 100%; height: 4px; border-radius: 4px; background: var(--anel); overflow: hidden; }
     .carregar .barra::after {
       content: ""; display: block; width: 30%; height: 100%; border-radius: 4px; background: var(--oceano);
       animation: onda 1.6s ease-in-out infinite;
     }
     @media (max-width: 640px) {
-      .carregar .fotos { grid-template-columns: repeat(2, 1fr); }
+      .carregar .meses { grid-template-columns: repeat(2, 1fr); }
+      .carregar .figura svg text { font-size: 24px; }   /* o SVG encolhe: letra maior para continuar legível */
       .carregar .faz { grid-template-columns: 1fr; }
     }
     @keyframes onda { 0% { transform: translateX(-100%); } 100% { transform: translateX(340%); } }
+    /* As curvas desenham-se da entrada até à colheita; o ponto final aparece no fim */
+    @media (prefers-reduced-motion: no-preference) {
+      .carregar .curva { stroke-dasharray: 1; stroke-dashoffset: 1; animation: desenhar 3.5s cubic-bezier(0.33, 0, 0.2, 1) 0.4s forwards; }
+      .carregar .fim { opacity: 0; animation: aparecer 0.3s ease-out 3.9s forwards; }
+    }
+    @keyframes desenhar { to { stroke-dashoffset: 0; } }
+    @keyframes aparecer { to { opacity: 1; } }
     @media (prefers-reduced-motion: reduce) {
       .carregar { transition: none; }
       .carregar .barra::after { animation: none; width: 100%; opacity: 0.5; }
@@ -71,37 +110,59 @@
   </style>
 </head>
 <body>
-  <div id="carregar" class="carregar" role="status" aria-live="polite">
+  <div id="carregar" class="carregar">
     <div class="conteudo">
       <header>
         <h1 id="titulo">Quanto tempo demora um peixe a chegar ao tamanho comercial?</h1>
         <p class="subtitulo" id="subtitulo">Modelo de crescimento em aquacultura</p>
       </header>
+      <div class="carga">
+        <div class="barra" id="barra" role="progressbar" aria-label="A carregar o modelo" aria-valuetext="A carregar"></div>
+        <p class="estado" id="estado" role="status" aria-live="polite">A carregar o modelo interativo, que corre em Python no próprio browser. Na primeira visita demora 30 a 60 segundos.</p>
+        <button class="abrir" id="abrir" type="button" hidden>Abrir o modelo</button>
+      </div>
       <p class="lead" id="lead">Um simulador do ciclo de engorda de quatro espécies criadas em Portugal e no Mediterrâneo, com parâmetros tirados da literatura científica. Mostra quando os peixes chegam ao tamanho comercial, quanta ração gastam e quanto custa produzi-los.</p>
-      <ul class="fotos">
-        <li><figure><img src="imagens/dourada.jpg" width="480" height="360" alt="Douradas a nadar num tanque de aquacultura." id="foto-dourada" />
-          <figcaption><span id="nome-dourada">Dourada</span> <i>Sparus aurata</i></figcaption></figure></li>
-        <li><figure><img src="imagens/robalo.jpg" width="480" height="360" alt="Robalo adulto pousado sobre redes." id="foto-robalo" />
-          <figcaption><span id="nome-robalo">Robalo</span> <i>Dicentrarchus labrax</i></figcaption></figure></li>
-        <li><figure><img src="imagens/pregado.jpg" width="480" height="360" alt="Pregados sobrepostos no fundo de um tanque." id="foto-pregado" />
-          <figcaption><span id="nome-pregado">Pregado</span> <i>Scophthalmus maximus</i></figcaption></figure></li>
-        <li><figure><img src="imagens/linguado.jpg" width="480" height="360" alt="Grande plano da cabeça de um linguado." id="foto-linguado" />
-          <figcaption><span id="nome-linguado">Linguado</span> <i>Solea senegalensis</i></figcaption></figure></li>
-      </ul>
+      <!-- Figura gerada com src/growth.py e os valores de partida da app (jaula, 19 °C de média,
+           entrada a 1 de abril, sem restrição alimentar); refazer se os parâmetros mudarem. -->
+      <figure class="figura">
+        <svg viewBox="0 0 640 276" role="img" id="figura-svg"
+             aria-label="Curvas do peso médio das quatro espécies, da entrada dos juvenis até ao tamanho comercial.">
+          <line x1="48" x2="620" y1="216.0" y2="216.0" stroke="#5A5248" />
+          <line x1="48" x2="620" y1="119.8" y2="119.8" stroke="#E2D8C6" />
+          <text x="52" y="113.8">500 g</text>
+          <line x1="48" x2="620" y1="23.6" y2="23.6" stroke="#E2D8C6" />
+          <text x="52" y="17.6">1000 g</text>
+          <text x="48.0" y="240" text-anchor="middle">0</text>
+          <text x="219.6" y="240" text-anchor="middle">6</text>
+          <text x="391.2" y="240" text-anchor="middle">12</text>
+          <text x="562.8" y="240" text-anchor="middle">18</text>
+          <text x="620" y="270" text-anchor="end" id="eixo-x">meses desde a entrada</text>
+          <path class="curva" pathLength="1" stroke="#A9781A" d="M48.0 215.4 L57.4 215.3 L66.8 215.2 L76.2 215.1 L85.6 214.9 L95.0 214.6 L104.4 214.3 L113.8 214.0 L123.2 213.5 L132.6 213.0 L142.0 212.3 L151.4 211.6 L160.7 210.7 L170.1 209.7 L179.5 208.5 L188.9 207.2 L198.3 205.8 L207.7 204.3 L217.1 202.8 L226.5 201.2 L235.9 199.5 L245.3 197.9 L254.7 196.3 L264.1 194.8 L273.5 193.4 L282.9 192.2 L292.3 191.0 L301.7 190.0 L311.1 189.0 L320.5 188.2 L329.9 187.3 L339.3 186.6 L348.7 185.8 L358.1 185.1 L367.4 184.3 L376.8 183.4 L386.2 182.4 L395.6 181.3 L405.0 180.1 L414.4 178.6 L423.8 177.1 L433.2 175.2 L442.6 173.2 L452.0 170.8 L461.4 168.4 L470.8 165.7 L480.2 162.7 L489.6 159.6 L499.0 156.2 L508.4 152.7 L517.8 149.1 L527.2 145.5 L536.6 141.8 L544.1 139.0" />
+          <path class="curva" pathLength="1" stroke="#2C5D8A" d="M48.0 215.4 L57.4 215.3 L66.8 215.3 L76.2 215.1 L85.6 215.0 L95.0 214.8 L104.4 214.6 L113.8 214.4 L123.2 214.1 L132.6 213.7 L142.0 213.3 L151.4 212.8 L160.7 212.3 L170.1 211.7 L179.5 211.0 L188.9 210.2 L198.3 209.4 L207.7 208.5 L217.1 207.6 L226.5 206.7 L235.9 205.7 L245.3 204.8 L254.7 203.9 L264.1 203.0 L273.5 202.2 L282.9 201.5 L292.3 200.8 L301.7 200.1 L311.1 199.5 L320.5 199.0 L329.9 198.5 L339.3 198.0 L348.7 197.6 L358.1 197.1 L367.4 196.6 L376.8 196.0 L386.2 195.4 L395.6 194.7 L405.0 193.8 L414.4 192.8 L423.8 191.7 L433.2 190.4 L442.6 189.0 L452.0 187.2 L461.4 185.4 L470.8 183.3 L480.2 180.9 L489.6 178.4 L499.0 175.6 L508.4 172.7 L517.8 169.5 L527.2 166.2 L536.6 162.8 L546.0 159.2 L555.4 155.7 L564.8 152.2 L574.1 148.7 L583.5 145.3 L592.9 142.1 L602.3 139.0" />
+          <path class="curva" pathLength="1" stroke="#9A4632" d="M48.0 214.0 L57.4 213.5 L66.8 212.9 L76.2 212.2 L85.6 211.3 L95.0 210.2 L104.4 209.0 L113.8 207.5 L123.2 205.8 L132.6 203.8 L142.0 201.5 L151.4 198.9 L160.7 196.0 L170.1 192.7 L179.5 189.1 L188.9 185.1 L198.3 180.8 L207.7 176.2 L217.1 171.2 L226.5 166.0 L235.9 160.6 L245.3 154.9 L254.7 149.0 L264.1 143.0 L273.5 136.9 L282.9 130.7 L292.3 124.5 L301.7 118.2 L311.1 111.7 L320.5 105.1 L329.9 98.5 L339.3 91.6 L348.7 84.6 L358.1 77.3 L367.4 69.8 L376.8 61.6 L386.2 53.1 L395.6 44.0 L405.0 34.3 L414.4 23.8 L415.4 23.6" />
+          <path class="curva" pathLength="1" stroke="#4F7A3A" d="M48.0 215.0 L57.4 214.9 L66.8 214.7 L76.2 214.5 L85.6 214.3 L95.0 214.0 L104.4 213.7 L113.8 213.4 L123.2 213.0 L132.6 212.6 L142.0 212.1 L151.4 211.6 L160.7 211.0 L170.1 210.4 L179.5 209.7 L188.9 209.0 L198.3 208.2 L207.7 207.4 L217.1 206.5 L226.5 205.6 L235.9 204.7 L245.3 203.7 L254.7 202.7 L264.1 201.7 L273.5 200.7 L282.9 199.7 L292.3 198.7 L301.7 197.7 L311.1 196.6 L320.5 195.6 L329.9 194.5 L339.3 193.5 L348.7 192.4 L358.1 191.2 L367.4 190.0 L376.8 188.8 L386.2 187.5 L395.6 186.1 L405.0 184.6 L414.4 183.0 L423.8 181.3 L433.2 179.5 L442.6 177.5 L452.0 175.4 L461.4 173.1 L470.8 170.7 L480.2 168.2 L489.6 165.4 L499.0 162.6 L508.4 159.6 L517.8 156.5 L527.2 153.2 L536.6 149.9 L540.3 148.7" />
+          <circle class="fim" cx="544.1" cy="139.0" r="5" fill="#A9781A" />
+          <circle class="fim" cx="602.3" cy="139.0" r="5" fill="#2C5D8A" />
+          <circle class="fim" cx="415.4" cy="23.6" r="5" fill="#9A4632" />
+          <circle class="fim" cx="540.3" cy="148.7" r="5" fill="#4F7A3A" />
+        </svg>
+        <ul class="meses">
+          <li style="--cor: #A9781A"><span class="especie" id="nome-dourada">Dourada</span><b><span id="meses-dourada">17 meses</span></b><small id="alvo-dourada">até 400 g</small></li>
+          <li style="--cor: #2C5D8A"><span class="especie" id="nome-robalo">Robalo</span><b><span id="meses-robalo">19 meses</span></b><small id="alvo-robalo">até 400 g</small></li>
+          <li style="--cor: #9A4632"><span class="especie" id="nome-pregado">Pregado</span><b><span id="meses-pregado">13 meses</span></b><small id="alvo-pregado">até 1 kg</small></li>
+          <li style="--cor: #4F7A3A"><span class="especie" id="nome-linguado">Linguado</span><b><span id="meses-linguado">17 meses</span></b><small id="alvo-linguado">até 350 g</small></li>
+        </ul>
+        <figcaption id="legenda"><strong>Figura 0.</strong> Peso médio desde a entrada dos juvenis até ao tamanho comercial, numa jaula no mar com 19 °C de média e entrada a 1 de abril. Dados simulados com o modelo da app.</figcaption>
+      </figure>
       <dl class="faz" id="faz">
         <div><dt>Escolher o cenário</dt><dd>Espécies, jaula no mar ou tanque, temperatura da água e alimentação.</dd></div>
         <div><dt>Ver o ciclo</dt><dd>Dias até ao tamanho comercial, calendário de produção e tamanhos na colheita.</dd></div>
         <div><dt>Fazer as contas</dt><dd>Ração, custos, receita e o dia de colheita com maior margem.</dd></div>
         <div><dt>Usar dados reais</dt><dd>Temperaturas e pesagens de uma exploração em CSV, comparadas com o modelo.</dd></div>
       </dl>
-      <div class="barra" id="barra" role="progressbar" aria-label="A carregar o modelo"></div>
-      <p class="estado" id="estado">A carregar o modelo, que corre em Python no próprio browser. Na primeira visita demora 30 a 60 segundos; as seguintes são mais rápidas.</p>
       <p class="autor" id="autor"><strong>Dinis Costa</strong> · Mestrado em Biologia Marinha Aplicada ·
         <a href="https://www.linkedin.com/in/dinis-costa-a58a67380" target="_blank" rel="noopener">LinkedIn</a> ·
         <a href="https://github.com/dinistcosta/aquaculture-growth-model" target="_blank" rel="noopener">Código e notebooks no GitHub</a></p>
-      <p class="creditos" id="creditos">Fotografias (recortadas e reduzidas), via Wikimedia Commons: dourada, Isabelle Cheret; robalo, Olivier Dugornay; pregado, Stéphane Lesbats (as três do Ifremer,
-        <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>); linguado, Mario Lepage
-        (<a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>).</p>
     </div>
   </div>
   <div id="root"></div>
@@ -120,37 +181,82 @@
           + '<div><dt>See the cycle</dt><dd>Days to market size, production calendar and sizes at harvest.</dd></div>'
           + '<div><dt>Do the sums</dt><dd>Feed, costs, revenue and the harvest day with the highest margin.</dd></div>'
           + '<div><dt>Use real data</dt><dd>Temperatures and weighings from a farm in CSV, compared with the model.</dd></div>',
-        estado: "Loading the model, which runs in Python inside the browser. The first visit takes 30 to 60 seconds; later visits are faster.",
+        estado: "Loading the interactive model, which runs in Python inside the browser. The first visit takes 30 to 60 seconds.",
+        abrir: "Open the model",
         autor: '<strong>Dinis Costa</strong> · MSc in Applied Marine Biology · '
           + '<a href="https://www.linkedin.com/in/dinis-costa-a58a67380" target="_blank" rel="noopener">LinkedIn</a> · '
           + '<a href="https://github.com/dinistcosta/aquaculture-growth-model" target="_blank" rel="noopener">Code and notebooks on GitHub</a>',
-        creditos: 'Photographs (cropped and resized), via Wikimedia Commons: sea bream, Isabelle Cheret; sea bass, Olivier Dugornay; turbot, Stéphane Lesbats (all three Ifremer, '
-          + '<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>); sole, Mario Lepage '
-          + '(<a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener">CC BY 3.0</a>).',
+        "meses-dourada": "17 months", "meses-robalo": "19 months", "meses-pregado": "13 months", "meses-linguado": "17 months",
+        "alvo-dourada": "to 400 g", "alvo-robalo": "to 400 g", "alvo-pregado": "to 1 kg", "alvo-linguado": "to 350 g",
+        "eixo-x": "months since stocking",
+        legenda: "<strong>Figure 0.</strong> Mean weight from stocking to market size, in a sea cage with a mean of 19 °C and stocking on 1 April. Simulated data from the app's model.",
       };
       document.documentElement.lang = "en";
       document.title = textos.titulo;
       for (const [id, html] of Object.entries(textos)) document.getElementById(id).innerHTML = html;
       document.getElementById("barra").setAttribute("aria-label", "Loading the model");
-      const alts = {dourada: "Sea bream swimming in an aquaculture tank.", robalo: "Adult sea bass lying on nets.",
-                    pregado: "Turbot overlapping on the bottom of a tank.", linguado: "Close-up of a sole's head."};
-      for (const [e, texto] of Object.entries(alts)) document.getElementById("foto-" + e).alt = texto;
+      document.getElementById("barra").setAttribute("aria-valuetext", "Loading");
+      document.getElementById("figura-svg").setAttribute("aria-label",
+        "Mean weight curves of the four species, from stocking to market size.");
     }
 
-    // Tira o ecrã de carregamento quando a app mostra os primeiros resultados
-    // (ou um erro), com um limite de 3 minutos para nunca ficar preso.
+    // Mensagens do carregamento: o texto muda se demorar, para a página nunca parecer parada
+    const GITHUB = "https://github.com/dinistcosta/aquaculture-growth-model";
+    const MENSAGENS = lang === "en" ? {
+      demora: "Still loading: Python is installing the model's packages in the browser.",
+      lenta: 'This is taking longer than usual. You can keep waiting, reload the page or read the '
+        + `<a href="${GITHUB}" target="_blank" rel="noopener">code and notebooks on GitHub</a>.`,
+      pronto: "The model is ready.",
+      progresso: ["Loading", "Ready"],
+    } : {
+      demora: "Ainda a carregar: o Python está a instalar os pacotes do modelo no browser.",
+      lenta: "Está a demorar mais do que o costume. Pode continuar à espera, recarregar a página ou ver o "
+        + `<a href="${GITHUB}" target="_blank" rel="noopener">código e os notebooks no GitHub</a>.`,
+      pronto: "O modelo está pronto.",
+      progresso: ["A carregar", "Pronto"],
+    };
     const ecra = document.getElementById("carregar");
+    const estado = document.getElementById("estado");
+    const barra = document.getElementById("barra");
+    const botao = document.getElementById("abrir");
+    const avisos = [
+      setTimeout(() => { estado.textContent = MENSAGENS.demora; }, 20000),
+      setTimeout(() => { estado.innerHTML = MENSAGENS.lenta; barra.classList.add("lenta"); }, 90000),
+    ];
+
+    // Tira o ecrã de carregamento e passa o foco para o título da app
     function esconder() {
       if (!ecra.isConnected) return;
-      observador.disconnect();
       ecra.classList.add("saida");
-      setTimeout(() => ecra.remove(), 500);
+      setTimeout(() => {
+        ecra.remove();
+        const titulo = document.querySelector("#root h1");
+        if (titulo) { titulo.tabIndex = -1; titulo.focus({ preventScroll: true }); }
+      }, 500);
     }
+
+    // Quando a app mostra os primeiros resultados: se a pessoa está a ler mais abaixo,
+    // o ecrã fica e aparece o botão "Abrir o modelo"; se não, sai sozinho.
+    // Se a app der erro, sai logo, para se ver a mensagem de erro.
+    function pronto() {
+      observador.disconnect();
+      avisos.forEach(clearTimeout);
+      if (ecra.scrollTop > 40) {
+        barra.classList.remove("lenta");
+        barra.classList.add("pronta");
+        barra.setAttribute("aria-valuetext", MENSAGENS.progresso[1]);
+        estado.textContent = MENSAGENS.pronto;
+        botao.hidden = false;
+      } else {
+        esconder();
+      }
+    }
+    botao.addEventListener("click", esconder);
     const observador = new MutationObserver(() => {
-      if (document.querySelector('#root [data-testid="stMetric"], #root [data-testid="stException"]')) esconder();
+      if (document.querySelector('#root [data-testid="stException"]')) { observador.disconnect(); esconder(); }
+      else if (document.querySelector('#root [data-testid="stMetric"]')) pronto();
     });
     observador.observe(document.getElementById("root"), { childList: true, subtree: true });
-    setTimeout(esconder, 180000);
   </script>
   <script type="module">
     import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@1.10.0/build/stlite.js";
