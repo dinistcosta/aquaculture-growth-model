@@ -27,71 +27,100 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" />
   <style>
+    /* Estilo "mar e fichas": banda azul-petróleo com linhas batimétricas no topo,
+       o resto num cinzento-esverdeado claro, com o conteúdo em fichas brancas com sombra.
+       As mesmas cores estão em app.py (ESTILO) e no tema do Streamlit (mais abaixo). */
     :root {
+      --mar: #17474F;
       --oceano: #1F5C66;
-      --fundo: #F5F0E6;
-      --texto: #22201C;
-      --texto-suave: #5A5248;
-      --anel: #D8CDB8;
+      --fundo: #E9EEEE;
+      --ficha: #FFFFFF;
+      --texto: #1C2629;
+      --texto-suave: #56676A;
+      --borda: #D6E0E0;
+      --na-banda: #F3EFE6;
+      --na-banda-suave: #C4D6D7;
+      --sombra: 0 1px 2px rgba(16, 40, 45, 0.06), 0 10px 24px -14px rgba(16, 40, 45, 0.45);
+      --margem: clamp(1rem, 5vw, 5rem);
+      /* Linhas batimétricas (curvas de profundidade), muito ténues */
+      --batimetria: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='420' viewBox='0 0 1200 420'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.085' stroke-width='1.3'%3E%3Cpath d='M-40 60 C160 10 320 120 520 70 S880 0 1240 80'/%3E%3Cpath d='M-40 110 C170 62 330 172 530 124 S890 50 1240 132'/%3E%3Cpath d='M-40 160 C180 114 340 224 540 178 S900 100 1240 184'/%3E%3Cpath d='M-40 210 C190 166 350 276 550 232 S910 150 1240 236'/%3E%3Cpath d='M-40 260 C200 218 360 328 560 286 S920 200 1240 288'/%3E%3Cpath d='M-40 310 C210 270 370 380 570 340 S930 250 1240 340'/%3E%3Cpath d='M-40 360 C220 322 380 432 580 394 S940 300 1240 392'/%3E%3Cpath d='M700 30 C760 10 860 20 880 60 S800 120 740 100 S650 50 700 30 Z'/%3E%3Cpath d='M720 46 C770 32 840 40 852 64 S800 100 756 88 S690 58 720 46 Z'/%3E%3C/g%3E%3C/svg%3E");
     }
     body { margin: 0; background: var(--fundo); color: var(--texto); font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+    ::selection { background: #CFE3E3; }
 
     /* Ecrã de carregamento: fica por cima da app até aparecerem os primeiros resultados */
     .carregar {
-      position: fixed; inset: 0; z-index: 1000; overflow-y: auto;
-      padding: 4.5rem clamp(1rem, 5vw, 5rem) 3rem; box-sizing: border-box;   /* = topo da app (app.py) */
+      position: fixed; inset: 0; z-index: 1000; overflow-y: auto; box-sizing: border-box;
       background: var(--fundo);
       transition: opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .carregar.saida { opacity: 0; pointer-events: none; }
-    .carregar .conteudo { display: flex; flex-direction: column; gap: 1.25rem; }
-    .carregar header { padding-bottom: 0.9rem; border-bottom: 3px double var(--texto-suave); }
+    /* Banda do mar: mesmas medidas que a banda da app (app.py), para a passagem não saltar */
+    .carregar .banda {
+      padding: 4.5rem var(--margem) 4rem; color: var(--na-banda);
+      background: var(--mar) var(--batimetria) center / cover no-repeat;
+      display: flex; flex-direction: column; gap: 1.1rem;
+    }
     .carregar h1 { margin: 0; font-family: 'Source Serif 4', Georgia, serif; font-size: clamp(2rem, 1.3rem + 2.4vw, 3rem); font-weight: 600; line-height: 1.1; letter-spacing: -0.01em; text-wrap: balance; max-width: 22ch; }
-    .carregar .subtitulo { margin: 0.6rem 0 0; font-family: 'Source Serif 4', Georgia, serif; font-style: italic; font-size: 1.2rem; color: var(--texto-suave); }
+    .carregar .subtitulo { margin: -0.5rem 0 0; font-family: 'Source Serif 4', Georgia, serif; font-style: italic; font-size: 1.2rem; color: var(--na-banda-suave); }
     .carregar p { margin: 0; max-width: 68ch; line-height: 1.55; }
-    .carregar .lead { font-size: 1.08rem; }
-    /* Figura de abertura: curvas de crescimento até ao tamanho comercial (desenham-se enquanto o modelo carrega) */
-    .carregar .figura { margin: 0; display: flex; flex-direction: column; gap: 0.9rem; }
-    .carregar .figura svg { display: block; width: 100%; height: auto; max-width: 46rem; }
-    .carregar .figura svg text { font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 13px; fill: var(--texto-suave); }
-    /* Avisos de progresso do stlite ("Loading Pyodide...", em inglês): escondidos enquanto o ecrã de
-       abertura está à vista; os avisos de erro continuam a aparecer */
-    body:has(#carregar) .Toastify__toast--default { display: none; }
-    .carregar .curva { fill: none; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
-    .carregar .meses { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
-    .carregar .meses li { line-height: 1.3; }
-    .carregar .meses .especie { display: flex; align-items: center; gap: 0.4rem; }
+    .carregar .lead { font-size: 1.05rem; color: #E3ECEC; }
+    .carregar .conteudo { padding: 0 var(--margem) 3rem; display: flex; flex-direction: column; gap: 1.25rem; }
+    .carregar .ficha { background: var(--ficha); border: 1px solid var(--borda); border-radius: 8px; box-shadow: var(--sombra); }
+
+    /* Estado do carregamento, dentro da banda */
+    .carregar .carga { display: flex; flex-direction: column; gap: 0.55rem; max-width: 46rem; }
+    .carregar .estado { color: var(--na-banda-suave); font-size: 0.95rem; }
+    .carregar .estado a { color: var(--na-banda); white-space: nowrap; }
+    .carregar .barra { width: 100%; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.16); overflow: hidden; }
+    .carregar .barra::after {
+      content: ""; display: block; width: 30%; height: 100%; border-radius: 4px; background: var(--na-banda);
+      animation: onda 1.6s ease-in-out infinite;
+    }
+    .carregar .barra.pronta::after { width: 100%; animation: none; transform: none; }
+    .carregar .barra.lenta::after { animation-duration: 3.2s; opacity: 0.6; }
+    .carregar .abrir {
+      align-self: flex-start; min-height: 44px; padding: 0.55rem 1.2rem; border: 0; border-radius: 0.3rem;
+      background: var(--na-banda); color: var(--mar); font: 600 1rem 'IBM Plex Sans', system-ui, sans-serif; cursor: pointer;
+      box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.5); transition: background-color 0.2s ease-out;
+    }
+    .carregar .abrir:hover { background: #FFFFFF; }
+    .carregar .abrir:focus-visible { outline: 2px solid var(--na-banda); outline-offset: 3px; }
+
+    /* Meses até ao tamanho comercial: quatro fichas que sobem por cima da banda */
+    .carregar .meses { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.9rem; margin: -2.25rem 0 0; padding: 0; list-style: none; }
+    .carregar .meses li { padding: 0.9rem 1rem 1rem; line-height: 1.3; position: relative; overflow: hidden; }
+    .carregar .meses li::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: var(--cor); }
+    .carregar .meses .especie { display: flex; align-items: center; gap: 0.4rem; font-size: 0.95rem; }
     .carregar .meses .especie::before { content: ""; width: 0.65rem; height: 0.65rem; border-radius: 50%; background: var(--cor); }
-    .carregar .meses b { display: block; font-family: 'Source Serif 4', Georgia, serif; font-size: 1.45rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 0.1rem; }
+    .carregar .meses b { display: block; font-family: 'Source Serif 4', Georgia, serif; font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 0.15rem; }
     .carregar .meses small { font-size: 0.9rem; color: var(--texto-suave); }
+
+    /* Figura de abertura: curvas de crescimento até ao tamanho comercial (desenham-se enquanto o modelo carrega) */
+    .carregar .figura { margin: 0; padding: 1.25rem 1.25rem 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+    .carregar .figura svg { display: block; width: 100%; height: auto; max-width: 52rem; }
+    .carregar .figura svg text { font-family: 'IBM Plex Sans', system-ui, sans-serif; font-size: 13px; fill: var(--texto-suave); }
+    .carregar .curva { fill: none; stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
     .carregar .figura figcaption { font-size: 0.9rem; color: var(--texto-suave); max-width: 72ch; line-height: 1.45; }
     .carregar .figura figcaption strong { font-family: 'Source Serif 4', Georgia, serif; color: var(--texto); }
-    .carregar .faz { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.9rem 2rem; margin: 0; padding: 1rem 0; border-top: 1px solid var(--anel); border-bottom: 1px solid var(--anel); }
+
+    /* O que a app faz */
+    .carregar .faz { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 2rem; margin: 0; padding: 1.25rem; }
     .carregar .faz div { line-height: 1.5; }
     .carregar .faz dt { font-family: 'Source Serif 4', Georgia, serif; font-weight: 600; font-size: 1.08rem; }
     .carregar .faz dd { margin: 0.15rem 0 0; color: var(--texto-suave); }
-    .carregar .carga { display: flex; flex-direction: column; gap: 0.55rem; max-width: 46rem; }
-    .carregar .estado { color: var(--texto-suave); font-size: 0.95rem; }
-    .carregar .estado a { white-space: nowrap; }
-    .carregar .abrir {
-      align-self: flex-start; min-height: 44px; padding: 0.55rem 1.1rem; border: 1px solid var(--oceano); border-radius: 0.25rem;
-      background: var(--oceano); color: var(--fundo); font: 500 1rem 'IBM Plex Sans', system-ui, sans-serif; cursor: pointer;
-      transition: background-color 0.2s ease-out;
-    }
-    .carregar .abrir:hover { background: #174850; }
-    .carregar .abrir:focus-visible { outline: 2px solid var(--oceano); outline-offset: 3px; }
-    .carregar .barra.pronta::after { width: 100%; animation: none; transform: none; }
-    .carregar .barra.lenta::after { animation-duration: 3.2s; opacity: 0.6; }
-    .carregar .autor { font-size: 0.95rem; }
-    .carregar a { color: var(--oceano); text-underline-offset: 0.15em; }
-    .carregar a:focus-visible { outline: 2px solid var(--oceano); outline-offset: 2px; border-radius: 2px; }
-    .carregar .barra { width: 100%; height: 4px; border-radius: 4px; background: var(--anel); overflow: hidden; }
-    .carregar .barra::after {
-      content: ""; display: block; width: 30%; height: 100%; border-radius: 4px; background: var(--oceano);
-      animation: onda 1.6s ease-in-out infinite;
-    }
+    .carregar .autor { font-size: 0.95rem; color: var(--texto-suave); }
+    .carregar .autor strong { color: var(--texto); }
+    .carregar .conteudo a { color: var(--oceano); text-underline-offset: 0.15em; }
+    .carregar a:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 2px; }
+
+    /* Avisos de progresso do stlite ("Loading Pyodide...", em inglês): escondidos enquanto o ecrã de
+       abertura está à vista; os avisos de erro continuam a aparecer */
+    body:has(#carregar) .Toastify__toast--default { display: none; }
+
     @media (max-width: 640px) {
-      .carregar .meses { grid-template-columns: repeat(2, 1fr); }
+      .carregar .meses { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .carregar .figura { padding: 1rem 0.75rem 0.85rem; }
       .carregar .figura svg text { font-size: 24px; }   /* o SVG encolhe: letra maior para continuar legível */
       .carregar .faz { grid-template-columns: 1fr; }
     }
@@ -111,26 +140,32 @@
 </head>
 <body>
   <div id="carregar" class="carregar">
-    <div class="conteudo">
-      <header>
-        <h1 id="titulo">Quanto tempo demora um peixe a chegar ao tamanho comercial?</h1>
-        <p class="subtitulo" id="subtitulo">Modelo de crescimento em aquacultura</p>
-      </header>
+    <header class="banda">
+      <h1 id="titulo">Quanto tempo demora um peixe a chegar ao tamanho comercial?</h1>
+      <p class="subtitulo" id="subtitulo">Modelo de crescimento em aquacultura</p>
+      <p class="lead" id="lead">Um simulador do ciclo de engorda de quatro espécies criadas em Portugal e no Mediterrâneo, com parâmetros tirados da literatura científica. Mostra quando os peixes chegam ao tamanho comercial, quanta ração gastam e quanto custa produzi-los.</p>
       <div class="carga">
         <div class="barra" id="barra" role="progressbar" aria-label="A carregar o modelo" aria-valuetext="A carregar"></div>
         <p class="estado" id="estado" role="status" aria-live="polite">A carregar o modelo interativo, que corre em Python no próprio browser. Na primeira visita demora 30 a 60 segundos.</p>
         <button class="abrir" id="abrir" type="button" hidden>Abrir o modelo</button>
       </div>
-      <p class="lead" id="lead">Um simulador do ciclo de engorda de quatro espécies criadas em Portugal e no Mediterrâneo, com parâmetros tirados da literatura científica. Mostra quando os peixes chegam ao tamanho comercial, quanta ração gastam e quanto custa produzi-los.</p>
+    </header>
+    <div class="conteudo">
+      <ul class="meses">
+        <li class="ficha" style="--cor: #A9781A"><span class="especie" id="nome-dourada">Dourada</span><b><span id="meses-dourada">17 meses</span></b><small id="alvo-dourada">até 400 g</small></li>
+        <li class="ficha" style="--cor: #2C5D8A"><span class="especie" id="nome-robalo">Robalo</span><b><span id="meses-robalo">19 meses</span></b><small id="alvo-robalo">até 400 g</small></li>
+        <li class="ficha" style="--cor: #9A4632"><span class="especie" id="nome-pregado">Pregado</span><b><span id="meses-pregado">13 meses</span></b><small id="alvo-pregado">até 1 kg</small></li>
+        <li class="ficha" style="--cor: #4F7A3A"><span class="especie" id="nome-linguado">Linguado</span><b><span id="meses-linguado">17 meses</span></b><small id="alvo-linguado">até 350 g</small></li>
+      </ul>
       <!-- Figura gerada com src/growth.py e os valores de partida da app (jaula, 19 °C de média,
            entrada a 1 de abril, sem restrição alimentar); refazer se os parâmetros mudarem. -->
-      <figure class="figura">
+      <figure class="figura ficha">
         <svg viewBox="0 0 640 276" role="img" id="figura-svg"
              aria-label="Curvas do peso médio das quatro espécies, da entrada dos juvenis até ao tamanho comercial.">
-          <line x1="48" x2="620" y1="216.0" y2="216.0" stroke="#5A5248" />
-          <line x1="48" x2="620" y1="119.8" y2="119.8" stroke="#E2D8C6" />
+          <line x1="48" x2="620" y1="216.0" y2="216.0" stroke="#56676A" />
+          <line x1="48" x2="620" y1="119.8" y2="119.8" stroke="#DCE5E5" />
           <text x="52" y="113.8">500 g</text>
-          <line x1="48" x2="620" y1="23.6" y2="23.6" stroke="#E2D8C6" />
+          <line x1="48" x2="620" y1="23.6" y2="23.6" stroke="#DCE5E5" />
           <text x="52" y="17.6">1000 g</text>
           <text x="48.0" y="240" text-anchor="middle">0</text>
           <text x="219.6" y="240" text-anchor="middle">6</text>
@@ -146,15 +181,9 @@
           <circle class="fim" cx="415.4" cy="23.6" r="5" fill="#9A4632" />
           <circle class="fim" cx="540.3" cy="148.7" r="5" fill="#4F7A3A" />
         </svg>
-        <ul class="meses">
-          <li style="--cor: #A9781A"><span class="especie" id="nome-dourada">Dourada</span><b><span id="meses-dourada">17 meses</span></b><small id="alvo-dourada">até 400 g</small></li>
-          <li style="--cor: #2C5D8A"><span class="especie" id="nome-robalo">Robalo</span><b><span id="meses-robalo">19 meses</span></b><small id="alvo-robalo">até 400 g</small></li>
-          <li style="--cor: #9A4632"><span class="especie" id="nome-pregado">Pregado</span><b><span id="meses-pregado">13 meses</span></b><small id="alvo-pregado">até 1 kg</small></li>
-          <li style="--cor: #4F7A3A"><span class="especie" id="nome-linguado">Linguado</span><b><span id="meses-linguado">17 meses</span></b><small id="alvo-linguado">até 350 g</small></li>
-        </ul>
         <figcaption id="legenda"><strong>Figura 0.</strong> Peso médio desde a entrada dos juvenis até ao tamanho comercial, numa jaula no mar com 19 °C de média e entrada a 1 de abril. Dados simulados com o modelo da app.</figcaption>
       </figure>
-      <dl class="faz" id="faz">
+      <dl class="faz ficha" id="faz">
         <div><dt>Escolher o cenário</dt><dd>Espécies, jaula no mar ou tanque, temperatura da água e alimentação.</dd></div>
         <div><dt>Ver o ciclo</dt><dd>Dias até ao tamanho comercial, calendário de produção e tamanhos na colheita.</dd></div>
         <div><dt>Fazer as contas</dt><dd>Ração, custos, receita e o dia de colheita com maior margem.</dd></div>
@@ -276,17 +305,17 @@
           "src/growth.py": { url: "./src/growth.py" },
           "src/regimes.py": { url: "./src/regimes.py" },
         },
-        // Mesmo tema que .streamlit/config.toml (caderno científico: tinta sobre papel creme)
+        // Mesmo tema que .streamlit/config.toml (mar e fichas)
         streamlitConfig: {
           "client.toolbarMode": "viewer",
           "theme.base": "light",
           "theme.primaryColor": "#1F5C66",
-          "theme.backgroundColor": "#F5F0E6",
-          "theme.secondaryBackgroundColor": "#EBE3D3",
-          "theme.textColor": "#22201C",
-          "theme.borderColor": "#D8CDB8",
+          "theme.backgroundColor": "#E9EEEE",
+          "theme.secondaryBackgroundColor": "#EEF3F3",
+          "theme.textColor": "#1C2629",
+          "theme.borderColor": "#D6E0E0",
           "theme.showWidgetBorder": true,
-          "theme.baseRadius": "0.25rem",
+          "theme.baseRadius": "0.3rem",
           "theme.font": fonte,
           "theme.headingFont": fonteTitulos,
         },

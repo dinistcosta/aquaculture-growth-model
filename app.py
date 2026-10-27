@@ -31,13 +31,26 @@ N_PEIXES = 1000    # peixes simulados; os resultados são depois escalados ao n�
 ESPECIES = ["dourada", "robalo", "pregado", "linguado"]
 CIENTIFICOS = {e: PARAMETROS[e]["nome_cientifico"] for e in ESPECIES}
 
-# Paleta de "caderno científico": tinta escura sobre papel creme
-COR_PAPEL = "#F5F0E6"
-COR_TEXTO = "#22201C"
-COR_TEXTO_SUAVE = "#5A5248"
-COR_GRELHA = "#E2D8C6"
+# Paleta "mar e fichas": banda azul-petróleo no topo, fundo cinzento-esverdeado claro e fichas brancas
+# (as mesmas cores estão no index.html e em .streamlit/config.toml)
+COR_MAR = "#17474F"            # banda do cabeçalho
+COR_FUNDO = "#E9EEEE"
+COR_FICHA = "#FFFFFF"          # fichas e fundo das figuras
+COR_BORDA = "#D6E0E0"
+COR_TEXTO = "#1C2629"
+COR_TEXTO_SUAVE = "#56676A"
+COR_GRELHA = "#DCE5E5"
 COR_TINTA = "#1F5C66"          # azul-petróleo: temperatura, ligações e destaques
-COR_PESAGENS = "#22201C"
+COR_PESAGENS = "#1C2629"
+# Linhas batimétricas (curvas de profundidade) desenhadas na banda do cabeçalho
+BATIMETRIA = ("url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='420' viewBox='0 0 1200 420'%3E"
+              "%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.085' stroke-width='1.3'%3E"
+              "%3Cpath d='M-40 60 C160 10 320 120 520 70 S880 0 1240 80'/%3E%3Cpath d='M-40 110 C170 62 330 172 530 124 S890 50 1240 132'/%3E"
+              "%3Cpath d='M-40 160 C180 114 340 224 540 178 S900 100 1240 184'/%3E%3Cpath d='M-40 210 C190 166 350 276 550 232 S910 150 1240 236'/%3E"
+              "%3Cpath d='M-40 260 C200 218 360 328 560 286 S920 200 1240 288'/%3E%3Cpath d='M-40 310 C210 270 370 380 570 340 S930 250 1240 340'/%3E"
+              "%3Cpath d='M-40 360 C220 322 380 432 580 394 S940 300 1240 392'/%3E"
+              "%3Cpath d='M700 30 C760 10 860 20 880 60 S800 120 740 100 S650 50 700 30 Z'/%3E"
+              "%3Cpath d='M720 46 C770 32 840 40 852 64 S800 100 756 88 S690 58 720 46 Z'/%3E%3C/g%3E%3C/svg%3E\")")
 CORES = {"dourada": "#A9781A", "robalo": "#2C5D8A", "pregado": "#9A4632", "linguado": "#4F7A3A"}
 LETRA = "IBM Plex Sans"
 LETRA_TITULOS = "Source Serif 4"
@@ -81,36 +94,60 @@ PESO_RACAO_JUVENIS_NO_CUSTO = 0.70
 # Nomes das colunas em inglês que também são aceites nos CSV
 COLUNAS_EN = {"date": "data", "temperature_c": "temperatura_c", "mean_weight_g": "peso_medio_g"}
 
-# Tema de "caderno científico" por cima do tema do Streamlit:
-# - títulos com letra serifada, réguas finas, cartões como fichas de papel;
-# - legendas e ligações com contraste suficiente (o Streamlit desbota-as com transparência);
+# Tema "mar e fichas" por cima do tema do Streamlit:
+# - cabeçalho numa banda azul-petróleo de ponta a ponta (com as mesmas medidas do ecrã de abertura);
+# - cartões e figuras em fichas brancas com sombra suave, sobre o fundo cinzento-esverdeado;
+# - títulos com letra serifada; legendas e ligações com contraste suficiente;
 # - anel de foco visível; linhas de texto com 65-75 caracteres;
 # - botões com pelo menos 44 px de altura no telemóvel.
 ESTILO = f"""
 <style>
+  :root {{ --margem: clamp(1rem, 5vw, 5rem); --sombra: 0 1px 2px rgba(16, 40, 45, 0.06), 0 10px 24px -14px rgba(16, 40, 45, 0.45); }}
   h1, h2, h3 {{ font-family: '{LETRA_TITULOS}', Georgia, serif !important; letter-spacing: -0.01em; }}
-  h1 {{ font-size: clamp(2rem, 1.3rem + 2.4vw, 3rem) !important; line-height: 1.1 !important; font-weight: 600 !important; }}
+  h1 {{ font-size: clamp(2rem, 1.3rem + 2.4vw, 3rem) !important; line-height: 1.1 !important; font-weight: 600 !important;
+        max-width: 22ch; text-wrap: balance; padding: 0 !important; }}
   h2 {{ font-size: 1.55rem !important; font-weight: 600 !important; padding-top: 1.75rem !important;
-        border-bottom: 1px solid {COR_TEXTO}; padding-bottom: 0.35rem !important; margin-bottom: 0.75rem !important; }}
+        border-bottom: 1px solid {COR_TEXTO_SUAVE}; padding-bottom: 0.35rem !important; margin-bottom: 0.75rem !important; }}
   h3 {{ font-size: 1.2rem !important; font-weight: 600 !important; }}
-  h1 {{ max-width: 22ch; text-wrap: balance; }}
-  .subtitulo {{ font-family: '{LETRA_TITULOS}', Georgia, serif; font-style: italic; font-size: 1.2rem;
-                color: {COR_TEXTO_SUAVE}; margin: -0.4rem 0 0.25rem; }}
-  /* Sem a barra de ferramentas do Streamlit e com as mesmas margens do ecrã de abertura (index.html) */
+  .subtitulo {{ font-family: '{LETRA_TITULOS}', Georgia, serif; font-style: italic; font-size: 1.2rem; margin: 0; }}
+  /* Sem a barra de ferramentas do Streamlit; margens iguais às do ecrã de abertura (index.html) */
   header[data-testid="stHeader"] {{ display: none; }}
-  [data-testid="stMainBlockContainer"] {{ padding-top: 2.5rem !important;
-      padding-left: clamp(1rem, 5vw, 5rem) !important; padding-right: clamp(1rem, 5vw, 5rem) !important; }}
-  h1 {{ padding-top: 0 !important; }}
-  hr {{ border: none !important; border-top: 3px double {COR_TEXTO_SUAVE} !important; opacity: 0.6; }}
+  [data-testid="stMainBlockContainer"] {{ padding-top: 0 !important;
+      padding-left: var(--margem) !important; padding-right: var(--margem) !important; }}
+
+  /* Banda do cabeçalho */
+  /* Os blocos <style> não ocupam espaço (senão deixam uma faixa vazia por cima da banda) */
+  [data-testid="stElementContainer"]:has(style) {{ display: none; }}
+  .st-key-cabecalho {{ margin: 0 calc(-1 * var(--margem)); width: calc(100% + 2 * var(--margem)) !important; max-width: none !important;
+      padding: 4.5rem var(--margem) 2.5rem;
+      background: {COR_MAR} {BATIMETRIA} center / cover no-repeat; gap: 1.1rem; }}
+  .st-key-cabecalho h1 {{ color: #F3EFE6; }}
+  .st-key-cabecalho .subtitulo {{ color: #C4D6D7; }}
+  .st-key-cabecalho p, .st-key-cabecalho strong {{ color: #E3ECEC; }}
+  .st-key-cabecalho [data-testid="stCaptionContainer"], .st-key-cabecalho [data-testid="stCaptionContainer"] * {{ color: #C4D6D7; }}
+  .st-key-cabecalho [data-testid="stLinkButton"] a, .st-key-cabecalho [data-testid="stButtonGroup"] button {{
+      background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.35); color: #F3EFE6; }}
+  .st-key-cabecalho [data-testid="stLinkButton"] a *, .st-key-cabecalho [data-testid="stButtonGroup"] button * {{ color: #F3EFE6 !important; }}
+  .st-key-cabecalho [data-testid="stLinkButton"] a:hover {{ background: rgba(255, 255, 255, 0.14); border-color: #F3EFE6; }}
+  .st-key-cabecalho [data-testid="stButtonGroup"] button[aria-checked="true"] {{ background: #F3EFE6; border-color: #F3EFE6; }}
+  .st-key-cabecalho [data-testid="stButtonGroup"] button[aria-checked="true"] * {{ color: {COR_MAR} !important; }}
+  .st-key-cabecalho :focus-visible {{ outline-color: #F3EFE6 !important; }}
+
+  /* Fichas: contentores com borda (cenário, cartões das espécies, figuras) */
+  /* (cada contentor com borda tem uma key que começa por "ficha", e o Streamlit põe-na na classe) */
+  [class*="st-key-ficha"] {{ background: {COR_FICHA}; border-color: {COR_BORDA} !important;
+      border-radius: 8px !important; box-shadow: var(--sombra); }}
+  [data-testid="stExpander"] details {{ background: {COR_FICHA}; border-color: {COR_BORDA}; border-radius: 6px; }}
+  hr {{ border: none !important; border-top: 1px solid {COR_BORDA} !important; }}
+
   [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {{ opacity: 1; color: {COR_TEXTO_SUAVE}; }}
   [data-testid="stCaptionContainer"] em {{ font-family: '{LETRA_TITULOS}', Georgia, serif; font-style: italic; }}
   [data-testid="stMarkdownContainer"] a {{ color: {COR_TINTA}; text-underline-offset: 0.15em; }}
   [data-testid="stMarkdownContainer"] p, [data-testid="stCaptionContainer"] p {{ max-width: 72ch; }}
-  [data-testid="stVerticalBlockBorderWrapper"] {{ background: #FBF8F1; }}
   [data-testid="stButtonGroup"] button[aria-checked="true"],
   [data-testid="stButtonGroup"] button[aria-checked="true"] * {{ color: {COR_TINTA} !important; }}
   :focus-visible {{ outline: 2px solid {COR_TINTA} !important; outline-offset: 2px; }}
-  ::selection {{ background: #E6D9BC; }}
+  ::selection {{ background: #CFE3E3; }}
   [data-testid="stMetricValue"] {{ font-variant-numeric: tabular-nums; font-family: '{LETRA_TITULOS}', Georgia, serif; }}
   @media (max-width: 640px) {{
     [data-testid="stButtonGroup"] button, [data-testid="stLinkButton"] a {{ min-height: 44px; }}
@@ -118,6 +155,9 @@ ESTILO = f"""
   }}
 </style>
 """
+# Risca com a cor da espécie no topo de cada cartão de resultados (como no ecrã de abertura)
+ESTILO += "<style>" + "".join(f".st-key-ficha_{e} {{ border-top: 3px solid {c} !important; }}"
+                              for e, c in CORES.items()) + "</style>"
 
 
 # ---------------------------------------------------------------------------
@@ -266,12 +306,12 @@ def eixo_de_meses():
 
 
 def com_estilo(grafico):
-    """Gráficos com o aspeto de figura de artigo: títulos serifados, grelha fina e pontilhada."""
-    return (grafico.configure(font=LETRA)
+    """Gráficos com o aspeto de figura de artigo: fundo branco, títulos serifados, grelha fina e pontilhada."""
+    return (grafico.configure(font=LETRA, background=COR_FICHA)
             .configure_title(font=f"'{LETRA_TITULOS}', Georgia, serif", color=COR_TEXTO, fontSize=16, fontWeight=600,
                              subtitleFont=LETRA, subtitleColor=COR_TEXTO_SUAVE, subtitleFontSize=12, anchor="start")
             .configure_axis(labelColor=COR_TEXTO_SUAVE, titleColor=COR_TEXTO_SUAVE, gridColor=COR_GRELHA,
-                            gridDash=[2, 3], domainColor="#8A7F70", tickColor="#8A7F70", labelFontSize=11)
+                            gridDash=[2, 3], domainColor="#8A9A9C", tickColor="#8A9A9C", labelFontSize=11)
             .configure_legend(labelColor=COR_TEXTO, titleColor=COR_TEXTO_SUAVE)
             .configure_view(strokeWidth=0))
 
@@ -283,40 +323,42 @@ numero_figura = [0]
 def figura(grafico, legenda, coluna=st):
     """Mostra um gráfico com uma legenda numerada por baixo (Fig. 1, Fig. 2, ...)."""
     numero_figura[0] += 1
-    coluna.altair_chart(com_estilo(grafico), width="stretch")
-    coluna.caption(f"*Fig. {numero_figura[0]}.* {legenda}")
+    with coluna.container(border=True, key=f"ficha_figura_{numero_figura[0]}"):
+        st.altair_chart(com_estilo(grafico), width="stretch")
+        st.caption(f"*Fig. {numero_figura[0]}.* {legenda}")
 
 
 # ---------------------------------------------------------------------------
 # 1. Cabeçalho (título, autor e botão da língua)
 # ---------------------------------------------------------------------------
-st.title(t("Quanto tempo demora um peixe a chegar ao tamanho comercial?",
-           "How long does a fish take to reach market size?"), anchor=False)
-# Subtítulo e botão da língua na mesma linha
-with st.container(horizontal=True, vertical_alignment="center", gap="medium"):
-    st.markdown(f'<p class="subtitulo">{t("Modelo de crescimento em aquacultura", "Growth model for aquaculture")}</p>',
-                unsafe_allow_html=True, width="content")
-    idioma_escolhido = st.segmented_control(
-        "Idioma / Language", ["pt", "en"], default=idioma, required=True, key="idioma",
-        format_func=str.upper, label_visibility="collapsed")
-st.query_params["lang"] = idioma_escolhido   # o link copiado abre na mesma língua
+# Tudo dentro da banda azul-petróleo (classe CSS "st-key-cabecalho", ver ESTILO)
+with st.container(key="cabecalho"):
+    st.title(t("Quanto tempo demora um peixe a chegar ao tamanho comercial?",
+               "How long does a fish take to reach market size?"), anchor=False)
+    # Subtítulo e botão da língua na mesma linha
+    with st.container(horizontal=True, vertical_alignment="center", gap="medium"):
+        st.markdown(f'<p class="subtitulo">{t("Modelo de crescimento em aquacultura", "Growth model for aquaculture")}</p>',
+                    unsafe_allow_html=True, width="content")
+        idioma_escolhido = st.segmented_control(
+            "Idioma / Language", ["pt", "en"], default=idioma, required=True, key="idioma",
+            format_func=str.upper, label_visibility="collapsed")
+    st.query_params["lang"] = idioma_escolhido   # o link copiado abre na mesma língua
 
-st.markdown(t("Simulação do ciclo de engorda da dourada, do robalo, do pregado e do linguado, com parâmetros "
-              "publicados: quando chegam ao tamanho comercial, quanta ração gastam e quanto custa produzi-los, "
-              "em jaula no mar ou em tanque / RAS.",
-              "A grow-out simulation of sea bream, sea bass, turbot and sole, with published parameters: when "
-              "they reach market size, how much feed they use and what it costs to produce them, in sea cages "
-              "or tanks / RAS."))
-with st.container(horizontal=True, vertical_alignment="center", gap="small"):
-    st.markdown(t("**Dinis Costa** · Mestrado em Biologia Marinha Aplicada",
-                  "**Dinis Costa** · MSc in Applied Marine Biology"), width="content")
-    st.link_button("LinkedIn", URL_LINKEDIN, icon=":material/person:")
-    st.link_button("GitHub", URL_GITHUB, icon=":material/code:")
-st.caption(t("Resultados **simulados** com parâmetros da literatura científica; "
-             "não são dados de nenhuma exploração.",
-             "**Simulated** results based on parameters from the scientific literature; "
-             "they are not data from any farm."))
-st.divider()
+    st.markdown(t("Simulação do ciclo de engorda da dourada, do robalo, do pregado e do linguado, com parâmetros "
+                  "publicados: quando chegam ao tamanho comercial, quanta ração gastam e quanto custa produzi-los, "
+                  "em jaula no mar ou em tanque / RAS.",
+                  "A grow-out simulation of sea bream, sea bass, turbot and sole, with published parameters: when "
+                  "they reach market size, how much feed they use and what it costs to produce them, in sea cages "
+                  "or tanks / RAS."))
+    with st.container(horizontal=True, vertical_alignment="center", gap="small"):
+        st.markdown(t("**Dinis Costa** · Mestrado em Biologia Marinha Aplicada",
+                      "**Dinis Costa** · MSc in Applied Marine Biology"), width="content")
+        st.link_button("LinkedIn", URL_LINKEDIN, icon=":material/person:")
+        st.link_button("GitHub", URL_GITHUB, icon=":material/code:")
+    st.caption(t("Resultados **simulados** com parâmetros da literatura científica; "
+                 "não são dados de nenhuma exploração.",
+                 "**Simulated** results based on parameters from the scientific literature; "
+                 "they are not data from any farm."))
 
 
 # ---------------------------------------------------------------------------
@@ -324,7 +366,7 @@ st.divider()
 # ---------------------------------------------------------------------------
 # Cada controlo tem uma `key`: assim a escolha mantém-se quando se muda de língua.
 st.header(t("Cenário", "Scenario"), anchor="cenario")
-with st.container(border=True):
+with st.container(border=True, key="ficha_cenario"):
     especies = st.pills(
         t("Espécies", "Species"), ESPECIES, selection_mode="multi", default=ESPECIES,
         format_func=lambda e: NOMES[e], key="especies",
@@ -636,7 +678,7 @@ for inicio in range(0, len(especies), 2):          # dois cartões por linha
         sim = simulacoes[especie]
         dia = dias_alvo[especie]
         alvo_g = peso_comercial[especie]
-        with coluna.container(border=True):
+        with coluna.container(border=True, key=f"ficha_{especie}"):
             # Quadrado com a cor da espécie nos gráficos
             marca = (f'<span style="display:inline-block;width:0.7em;height:0.7em;border-radius:1px;'
                      f'background:{CORES[especie]};margin-right:0.4em"></span>')
@@ -748,7 +790,7 @@ with aba_crescimento:
         text=alt.Text("y:Q", format="d"))
     chegadas = pd.DataFrame([{"nome": NOMES[e], "dia": d, "peso": peso_comercial[e]}
                              for e, d in dias_alvo.items() if d is not None])
-    pontos = alt.Chart(chegadas).mark_point(filled=True, size=110, stroke=COR_PAPEL, strokeWidth=2,
+    pontos = alt.Chart(chegadas).mark_point(filled=True, size=110, stroke=COR_FICHA, strokeWidth=2,
                                             opacity=1).encode(
         x=alt.X("dia:Q", scale=escala_x), y=alt.Y("peso:Q", scale=escala_y), color=cor,
         tooltip=[especie_tt, alt.Tooltip("dia:Q", title=t("Chega ao tamanho comercial no dia",
@@ -797,7 +839,7 @@ with aba_crescimento:
     grafico_temp = alt.Chart(dados_temp).mark_area(
         line={"color": COR_TINTA, "strokeWidth": 2},
         color=alt.Gradient(gradient="linear", x1=1, x2=1, y1=1, y2=0,
-                           stops=[alt.GradientStop(color=COR_PAPEL, offset=0),
+                           stops=[alt.GradientStop(color=COR_FICHA, offset=0),
                                   alt.GradientStop(color=COR_TINTA, offset=1)]),
         opacity=0.3).encode(
         x=eixo_x,
@@ -994,7 +1036,7 @@ with aba_custos:
             x=eixo_x, y=alt.Y("margem:Q", title=t("Margem estimada (€)", "Estimated margin (€)")), color=cor,
             tooltip=[especie_tt, dia_tt, alt.Tooltip("margem:Q", title="€", format=",.0f")])
         zero = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(color=COR_TEXTO_SUAVE).encode(y="y:Q")
-        pontos_melhor = alt.Chart(melhor).mark_point(filled=True, size=100, stroke=COR_PAPEL, strokeWidth=2,
+        pontos_melhor = alt.Chart(melhor).mark_point(filled=True, size=100, stroke=COR_FICHA, strokeWidth=2,
                                                      opacity=1).encode(
             x=alt.X("dia:Q", scale=escala_x), y="margem:Q", color=cor,
             tooltip=[especie_tt, alt.Tooltip("dia:Q", title=t("Melhor dia de colheita", "Best harvest day")),
@@ -1049,7 +1091,7 @@ with aba_entrada:
                         parametros[especie_mapa], fator)
     mapa["meses"] = mapa["dias"] / 30.4
     mapa["mes_nome"] = [MESES[m - 1] for m in mapa["mes"]]
-    celulas = alt.Chart(mapa).mark_rect(stroke=COR_PAPEL, strokeWidth=1.5).encode(
+    celulas = alt.Chart(mapa).mark_rect(stroke=COR_FICHA, strokeWidth=1.5).encode(
         x=alt.X("mes_nome:O", sort=MESES, title=t("Mês de entrada dos juvenis", "Stocking month"),
                 axis=alt.Axis(labelAngle=0)),
         y=alt.Y("media:O", sort="descending", title=t("Temperatura média do mar (°C)", "Mean sea temperature (°C)")),
