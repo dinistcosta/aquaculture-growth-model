@@ -45,9 +45,14 @@ LETRA_TITULOS = "Source Serif 4"
 URL_GITHUB = "https://github.com/dinistcosta/aquaculture-growth-model"
 URL_LINKEDIN = "https://www.linkedin.com/in/dinis-costa-a58a67380"
 
-# Ficheiros de exemplo que a pessoa pode descarregar e preencher
-MODELO_TEMPERATURAS = "data,temperatura_c\n2024-04-01,16.5\n2024-04-08,17.0\n2024-04-15,17.2\n"
-MODELO_PESAGENS = "data,peso_medio_g\n2024-05-01,9.8\n2024-06-01,24.5\n2024-07-01,48.0\n"
+# Data de entrada do exemplo: o próximo 1 de abril (assim a colheita "prevista" nunca é uma data passada)
+_hoje = datetime.date.today()
+DATA_ENTRADA_EXEMPLO = datetime.date(_hoje.year + (_hoje >= datetime.date(_hoje.year, 4, 1)), 4, 1)
+
+# Ficheiros de exemplo que a pessoa pode descarregar e preencher (datas a partir da entrada do exemplo)
+_ano = DATA_ENTRADA_EXEMPLO.year
+MODELO_TEMPERATURAS = f"data,temperatura_c\n{_ano}-04-01,16.5\n{_ano}-04-08,17.0\n{_ano}-04-15,17.2\n"
+MODELO_PESAGENS = f"data,peso_medio_g\n{_ano}-05-01,9.8\n{_ano}-06-01,24.5\n{_ano}-07-01,48.0\n"
 
 # Tamanho comercial de partida (g): 400 g para dourada e robalo (Cardia & Lovatelli, 2007);
 # 1 kg para o pregado (vende-se entre 0,7 e 2 kg; FAO); 350 g para o linguado (FAO).
@@ -91,6 +96,11 @@ ESTILO = f"""
   h1 {{ max-width: 22ch; text-wrap: balance; }}
   .subtitulo {{ font-family: '{LETRA_TITULOS}', Georgia, serif; font-style: italic; font-size: 1.2rem;
                 color: {COR_TEXTO_SUAVE}; margin: -0.4rem 0 0.25rem; }}
+  /* Sem a barra de ferramentas do Streamlit e com as mesmas margens do ecrã de abertura (index.html) */
+  header[data-testid="stHeader"] {{ display: none; }}
+  [data-testid="stMainBlockContainer"] {{ padding-top: 2.5rem !important;
+      padding-left: clamp(1rem, 5vw, 5rem) !important; padding-right: clamp(1rem, 5vw, 5rem) !important; }}
+  h1 {{ padding-top: 0 !important; }}
   hr {{ border: none !important; border-top: 3px double {COR_TEXTO_SUAVE} !important; opacity: 0.6; }}
   [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {{ opacity: 1; color: {COR_TEXTO_SUAVE}; }}
   [data-testid="stCaptionContainer"] em {{ font-family: '{LETRA_TITULOS}', Georgia, serif; font-style: italic; }}
@@ -155,6 +165,19 @@ st.set_page_config(page_title=t("Quanto tempo demora um peixe a chegar ao tamanh
                                 "How long does a fish take to reach market size?"),
                    page_icon=":material/show_chart:", layout="wide")
 st.markdown(ESTILO, unsafe_allow_html=True)
+
+# O Streamlit escreve sempre em inglês no campo de envio de ficheiros ("Upload", "200MB per file");
+# escondemos esses textos e pomos outros, na língua escolhida, por CSS.
+st.markdown(f"""
+<style>
+  [data-testid="stFileUploaderDropzone"] button [data-testid="stMarkdownContainer"] p,
+  [data-testid="stFileUploaderDropzoneInstructions"] span {{ font-size: 0; max-width: none; }}
+  [data-testid="stFileUploaderDropzone"] button [data-testid="stMarkdownContainer"] p::after {{
+    content: "{t('Escolher ficheiro', 'Choose file')}"; font-size: 0.875rem; }}
+  [data-testid="stFileUploaderDropzoneInstructions"] span::after {{
+    content: "{t('ou arrastar para aqui · CSV', 'or drag it here · CSV')}"; font-size: 0.875rem; }}
+</style>
+""", unsafe_allow_html=True)
 
 
 def virgula(numero, casas=1):
@@ -267,14 +290,15 @@ def figura(grafico, legenda, coluna=st):
 # ---------------------------------------------------------------------------
 # 1. Cabeçalho (título, autor e botão da língua)
 # ---------------------------------------------------------------------------
-col_titulo, col_lingua = st.columns([8, 1], vertical_alignment="center")
-col_titulo.title(t("Quanto tempo demora um peixe a chegar ao tamanho comercial?",
-                   "How long does a fish take to reach market size?"))
-col_titulo.markdown(f'<p class="subtitulo">{t("Modelo de crescimento em aquacultura", "Growth model for aquaculture")}</p>',
-                    unsafe_allow_html=True)
-idioma_escolhido = col_lingua.segmented_control(
-    "Idioma / Language", ["pt", "en"], default=idioma, required=True, key="idioma",
-    format_func=str.upper, label_visibility="collapsed")
+st.title(t("Quanto tempo demora um peixe a chegar ao tamanho comercial?",
+           "How long does a fish take to reach market size?"), anchor=False)
+# Subtítulo e botão da língua na mesma linha
+with st.container(horizontal=True, vertical_alignment="center", gap="medium"):
+    st.markdown(f'<p class="subtitulo">{t("Modelo de crescimento em aquacultura", "Growth model for aquaculture")}</p>',
+                unsafe_allow_html=True, width="content")
+    idioma_escolhido = st.segmented_control(
+        "Idioma / Language", ["pt", "en"], default=idioma, required=True, key="idioma",
+        format_func=str.upper, label_visibility="collapsed")
 st.query_params["lang"] = idioma_escolhido   # o link copiado abre na mesma língua
 
 st.markdown(t("Simulação do ciclo de engorda da dourada, do robalo, do pregado e do linguado, com parâmetros "
@@ -302,7 +326,7 @@ st.divider()
 st.header(t("Cenário", "Scenario"), anchor="cenario")
 with st.container(border=True):
     especies = st.pills(
-        t("Espécies", "Species"), ESPECIES, selection_mode="multi", default=["dourada", "robalo"],
+        t("Espécies", "Species"), ESPECIES, selection_mode="multi", default=ESPECIES,
         format_func=lambda e: NOMES[e], key="especies",
         help=t("O pregado e o linguado são criados sobretudo em tanques em terra, e os seus parâmetros "
                "são os menos seguros do modelo (ver Notas sobre o modelo).",
@@ -379,7 +403,7 @@ with st.container(border=True):
         c1, c2 = st.columns(2, gap="medium")
         n_juvenis = c1.number_input(t("Número de juvenis", "Number of juveniles"), 100, 5_000_000, N_PEIXES, 1000,
                                     key="n_juvenis")
-        data_entrada = c2.date_input(t("Data de entrada", "Stocking date"), datetime.date(2024, 4, 1),
+        data_entrada = c2.date_input(t("Data de entrada", "Stocking date"), DATA_ENTRADA_EXEMPLO,
                                      format="DD/MM/YYYY", key="data_entrada")
 
         st.markdown(t("**Medições (CSV).** Um ficheiro por tipo de medição, uma linha por medição. "
@@ -467,7 +491,7 @@ if not especies:
     st.stop()
 
 # É um exemplo enquanto os dados da exploração e os parâmetros estiverem nos valores de partida
-e_exemplo = (n_juvenis == N_PEIXES and data_entrada == datetime.date(2024, 4, 1)
+e_exemplo = (n_juvenis == N_PEIXES and data_entrada == DATA_ENTRADA_EXEMPLO
              and ficheiro_temp is None and ficheiro_pesos is None
              and all(parametros[e]["tgc_1_3"] == PARAMETROS[e]["tgc_1_3"]
                      and parametros[e]["tgc_2_3"] == PARAMETROS[e]["tgc_2_3"]
@@ -597,10 +621,12 @@ dias_alvo = {e: dias_ate_peso(s, peso_comercial[e]) for e, s in simulacoes.items
 # ---------------------------------------------------------------------------
 st.header(t("Resultados", "Results"), anchor="resultados")
 if e_exemplo:
-    st.caption(t("**Exemplo** com os valores de partida: 1 000 juvenis a entrar a 1 de abril, com os parâmetros da "
-                 "literatura. Para usar os dados de uma exploração, abrir **Dados da exploração** no painel do cenário.",
-                 "**Example** with the starting values: 1,000 juveniles stocked on 1 April, with parameters from the "
-                 "literature. To use a farm's data, open **Farm data** in the scenario panel."))
+    st.caption(t(f"**Exemplo** com os valores de partida: 1 000 juvenis a entrar a 1 de abril de {DATA_ENTRADA_EXEMPLO.year}, "
+                 "com os parâmetros da literatura. Para usar os dados de uma exploração, abrir **Dados da exploração** "
+                 "no [painel do cenário](#cenario).",
+                 f"**Example** with the starting values: 1,000 juveniles stocked on 1 April {DATA_ENTRADA_EXEMPLO.year}, "
+                 "with parameters from the literature. To use a farm's data, open **Farm data** in the "
+                 "[scenario panel](#cenario)."))
 for aviso in avisos:
     st.caption(aviso)
 
@@ -625,9 +651,8 @@ for inicio in range(0, len(especies), 2):          # dois cartões por linha
             ganho_biomassa = ate_peso["biomassa_kg"].iloc[-1] - n_juvenis * peso_inicial[especie] / 1000
             fcr = ate_peso["racao_kg"].sum() / ganho_biomassa
             with st.container(horizontal=True, gap="medium"):
-                st.metric(t(f"Dias até {alvo_g} g", f"Days to {alvo_g} g"), dia,
-                          delta=t(f"≈ {virgula(dia / 30.4)} meses", f"≈ {virgula(dia / 30.4)} months"),
-                          delta_color="off", delta_arrow="off", width="content")
+                st.metric(t(f"Meses até {milhares(alvo_g)} g", f"Months to {milhares(alvo_g)} g"),
+                          virgula(dia / 30.4), width="content")
                 st.metric("FCR", virgula(fcr, 2), width="content",
                           help=t("FCR económico: kg de ração por kg de peixe produzido, incluindo a ração comida "
                                  "pelos peixes que morreram.",
@@ -635,8 +660,8 @@ for inicio in range(0, len(especies), 2):          # dois cartões por linha
                                  "that died."))
                 st.metric(t("Sobrevivência", "Survival"), f"{sim.loc[dia, 'n_peixes'] / n_juvenis:.0%}",
                           width="content")
-            st.caption(t(f"Juvenis de {gramas(peso_inicial[especie])} g · colheita prevista: ",
-                         f"{gramas(peso_inicial[especie])} g juveniles · expected harvest: ")
+            st.caption(t(f"{milhares(dia)} dias · juvenis de {gramas(peso_inicial[especie])} g · colheita prevista: ",
+                         f"{milhares(dia)} days · {gramas(peso_inicial[especie])} g juveniles · expected harvest: ")
                        + mes_e_ano(sim.loc[dia, "data"]))
             st.caption("*" + t("Fontes: ", "Sources: ") + fontes(especie) + "*")
 
